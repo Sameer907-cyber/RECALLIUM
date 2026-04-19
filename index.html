@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ Recallium | How far can you remember?</title>
+    <meta name="description"
+        content="A high-level, modern, professional multi-game web application focused on memory and logic.">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Modern Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+</head>
+
+<body data-theme="home">
+    <!-- Background Elements -->
+    <div id="plasma-bg"></div>
+    <div class="theme-bg" id="bg-home"></div>
+    <div class="theme-bg" id="bg-memory"></div>
+    <div class="theme-bg" id="bg-sequence"></div>
+    <canvas id="bg-canvas"></canvas>
+    <div id="crt-overlay"></div>
+
+    <!-- UI Overlay container -->
+    <div id="app-container">
+
+        <!-- ============================================== -->
+        <!-- HOME VIEW (MAIN MENU)                          -->
+        <!-- ============================================== -->
+        <section id="view-home" class="view active">
+            <header class="main-header">
+                <h1 class="glow-text title-anim">⚡ Recallium</h1>
+                <p class="tagline fade-in-up">Train Think Triumph</p>
+            </header>
+
+            <div class="card-container">
+                <div class="game-card fade-in-up delay-1" data-target="view-memory">
+                    <div class="card-inner">
+                        <div class="card-icon">🧠</div>
+                        <h2>Memory Game</h2>
+                        <p>Memorize the growing sequence in PvC or PvP modes.</p>
+                    </div>
+                    <div class="card-glow"></div>
+                </div>
+
+                <div class="game-card fade-in-up delay-2" data-target="view-guess">
+                    <div class="card-inner">
+                        <div class="card-icon">🎯</div>
+                        <h2>Guess The Number</h2>
+                        <p>Find the secret number with advanced guidance.</p>
+                    </div>
+                    <div class="card-glow-alt"></div>
+                </div>
+
+                <div class="game-card fade-in-up delay-3" data-target="view-sequence">
+                    <div class="card-inner">
+                        <div class="card-icon">🔢</div>
+                        <h2>Sequence Recall</h2>
+                        <p>Memorize the rapid sequence before it vanishes.</p>
+                    </div>
+                    <div class="card-glow"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- VIEW: MEMORY GAME                              -->
+        <!-- ============================================== -->
+        <section id="view-memory" class="view">
+            <div class="top-bar glass-panel">
+                <button class="btn-back">⬅ Menu</button>
+                <h2 class="view-title">🧠 Memory Game</h2>
+                <div class="spacer"></div>
+            </div>
+
+            <div class="game-content">
+                <!-- Mode Selection -->
+                <div id="memory-modes" class="sub-view active glass-panel padded">
+                    <h3>Select Mode</h3>
+                    <div class="mode-buttons">
+                        <button class="btn glow-btn btn-magenta" id="btn-pvc">
+                            <span class="btn-icon">🤖</span> Player vs Computer
+                        </button>
+                        <button class="btn glow-btn btn-cyan" id="btn-pvp">
+                            <span class="btn-icon">👥</span> Player vs Player
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Game Play Area -->
+                <div id="memory-play" class="sub-view glass-panel padded hidden">
+                    <div class="game-hub-header">
+                        <span id="memory-level" class="pill pill-cyan">Level 1</span>
+                        <span id="memory-turn-indicator" class="pill pill-magenta hidden">Player 1's Turn</span>
+                    </div>
+
+                    <div class="display-box" id="memory-display">
+                        <span class="number-flash" id="memory-flash-text">--</span>
+                    </div>
+
+                    <div class="input-area">
+                        <input type="number" id="memory-input" placeholder="Type sequence & press Enter..."
+                            autocomplete="off" disabled>
+                    </div>
+
+                    <div class="controls row">
+                        <button class="btn-secondary" id="btn-memory-start">Start Round</button>
+                        <button class="btn-secondary outline" id="btn-memory-reset">Restart</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- VIEW: GUESS THE NUMBER                         -->
+        <!-- ============================================== -->
+        <section id="view-guess" class="view">
+            <div class="top-bar glass-panel">
+                <button class="btn-back">⬅ Menu</button>
+                <h2 class="view-title">🎯 Guess The Number</h2>
+                <div class="spacer"></div>
+            </div>
+
+            <div class="game-content">
+                <div class="guess-game-wrapper glass-panel padded">
+                    <div class="game-hub-header">
+                        <span id="guess-attempts" class="pill pill-cyan">Attempts: 0</span>
+                    </div>
+
+                    <div class="feedback-box display-box" id="guess-feedback">
+                        <span id="guess-feedback-text">I'm thinking of a number from 1 to 100...</span>
+                    </div>
+
+                    <div class="input-area row combo-input">
+                        <input type="number" id="guess-input" placeholder="Enter guess..." autocomplete="off">
+                        <button class="btn glow-btn btn-magenta" id="btn-guess-submit">Deploy</button>
+                    </div>
+
+                    <div class="controls row">
+                        <button class="btn-secondary outline" id="btn-guess-reset">Initialize New Target</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- VIEW: SEQUENCE RECALL                          -->
+        <!-- ============================================== -->
+        <section id="view-sequence" class="view">
+            <div class="top-bar glass-panel">
+                <button class="btn-back">⬅ Menu</button>
+                <h2 class="view-title">🔢 Sequence Recall</h2>
+                <div class="spacer"></div>
+            </div>
+
+            <div class="game-content">
+                <div class="sequence-game-wrapper glass-panel padded">
+                    <div class="game-hub-header">
+                        <span id="sequence-score" class="pill pill-cyan">Score: 0</span>
+                        <span id="sequence-timer" class="pill pill-magenta">0.0s</span>
+                    </div>
+
+                    <div class="display-box" id="sequence-display">
+                        <span class="number-sequence" id="sequence-flash-text">Get Ready!</span>
+                    </div>
+
+                    <div class="input-area row combo-input hidden" id="sequence-input-area">
+                        <input type="text" id="sequence-input" placeholder="Recall sequence..." autocomplete="off">
+                        <button class="btn glow-btn btn-cyan" id="btn-sequence-submit">Verify</button>
+                    </div>
+
+                    <div class="controls row">
+                        <button class="btn-secondary outline" id="btn-sequence-start">Start Initializing</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <div id="cyber-hud">
+    <div class="hud-left">
+        <div class="hud-box">SYSTEM ONLINE</div>
+        <div class="hud-box">MEMORY CORE ACTIVE</div>
+    </div>
+
+    <div class="hud-right">
+        <div class="hud-box" id="hud-time"></div>
+        <div class="hud-box">FPS: <span id="fps">--</span></div>
+    </div>
+</div>
+
+    </div>
+
+    <div id="transition-glitch"></div>
+    <canvas id="trail-canvas"></canvas>
+    <script src="script.js"></script>
+</body>
+
+</html>
