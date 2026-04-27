@@ -1,3 +1,39 @@
+let joystick = {
+    x: 0,
+    y: 0,
+    btn: 1
+};
+
+const ESP_IP = "192.168.1.9";
+
+const socket = new WebSocket(`ws://${ESP_IP}:81/`);
+
+socket.onopen = () => {
+    console.log("Connected to ESP 🎮");
+};
+
+socket.onmessage = (event) => {
+    const data = event.data.trim();
+
+    // If joystick format → "dx,dy,btn"
+    if (data.includes(",")) {
+        const [dx, dy, btn] = data.split(",");
+
+        joystick.x = Number(dx);
+        joystick.y = Number(dy);
+        joystick.btn = Number(btn);
+
+        handleJoystick();
+    } else {
+
+        handleESPInput(data);
+    }
+};
+
+let lastInputTime = 0;
+const INPUT_DELAY = 80; // ms
+
+
 // ==========================================
 // AUDIO SYNTHESIS & SOUND EFFECTS
 // ==========================================
@@ -99,7 +135,10 @@ class Particle {
         if (theme === 'guess') {
             ctx.filter = 'blur(4px)';
             ctx.fillStyle = `rgba(${this.color}, ${this.opacity * 0.5})`;
-        } else if (theme === 'home' && !this.isBurst) {
+            const now = Date.now();
+
+
+        } if (theme === 'home' && !this.isBurst) {
             ctx.filter = 'none';
             const op = this.size < 1.5 ? this.opacity * 0.3 : this.opacity;
             ctx.fillStyle = `rgba(255, 255, 255, ${op})`;
@@ -233,6 +272,9 @@ function navigateTo(targetId) {
         if (targetId === 'view-memory') resetMemoryView();
         if (targetId === 'view-guess') initGuessGame();
         if (targetId === 'view-sequence') initSequenceGame();
+        if (targetId === 'view-breaker') initBreakerGame();
+        if (targetId === 'view-territory') initTerritoryGame();
+        if (targetId === 'view-reaction') initReactionGame();
     }, 350);
 }
 
@@ -739,3 +781,516 @@ function updateFPS() {
     requestAnimationFrame(updateFPS);
 }
 updateFPS();
+
+
+
+
+
+
+
+// ==========================================
+// GAME 4: BALL BREAKER
+// ==========================================
+const breakerCanvas = document.getElementById('breaker-canvas');
+const bctx = breakerCanvas ? breakerCanvas.getContext('2d') : null;
+let breakerActive = false;
+let breakerAnimId;
+let paddle = { x: 250, y: 380, w: 100, h: 10 };
+let ball = { x: 300, y: 370, r: 5, dx: 4, dy: -4 };
+let bricks = [];
+let breakerScore = 0;
+let breakerLives = 3;
+let breakerKeys = {};
+
+function initBreakerGame() {
+    breakerActive = false;
+    cancelAnimationFrame(breakerAnimId);
+    breakerScore = 0;
+    breakerLives = 3;
+    document.getElementById('breaker-score').textContent = 'Score: 0';
+    document.getElementById('breaker-lives').textContent = 'Lives: 3';
+    document.getElementById('breaker-overlay').classList.remove('hidden');
+    document.getElementById('breaker-msg').textContent = 'Press Start';
+    initBricks();
+    resetBall();
+    drawBreaker();
+}
+
+function initBricks() {
+    bricks = [];
+    for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 8; c++) {
+            bricks.push({ x: c * 70 + 25, y: r * 25 + 30, w: 60, h: 15, active: true, color: `hsl(${r * 40}, 100%, 50%)` });
+        }
+    }
+}
+
+function resetBall() {
+    paddle.x = 250;
+    ball.x = paddle.x + paddle.w / 2;
+    ball.y = paddle.y - 10;
+    ball.dx = 4 * (Math.random() > 0.5 ? 1 : -1);
+    ball.dy = -4;
+}
+
+const btnBreakerStart = document.getElementById('btn-breaker-start');
+if (btnBreakerStart) {
+    btnBreakerStart.addEventListener('click', () => {
+        sfx.click();
+        if (breakerLives <= 0 || bricks.every(b => !b.active)) initBreakerGame();
+        document.getElementById('breaker-overlay').classList.add('hidden');
+        if (!breakerActive) {
+            breakerActive = true;
+            updateBreaker();
+        }
+    });
+}
+
+function drawBreaker() {
+    if (!bctx) return;
+    bctx.clearRect(0, 0, 600, 400);
+    // Draw paddle
+    bctx.fillStyle = '#00f0ff';
+    bctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+    // Draw ball
+    bctx.beginPath();
+    bctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+    bctx.fillStyle = '#ff003c';
+    bctx.fill();
+    // Draw bricks
+    bricks.forEach(b => {
+        if (b.active) {
+            bctx.fillStyle = b.color;
+            bctx.fillRect(b.x, b.y, b.w, b.h);
+        }
+    });
+}
+
+function updateBreaker() {
+    if (!breakerActive) return;
+
+    // Paddle movement
+    if (breakerKeys['ArrowLeft'] || breakerKeys['a']) paddle.x -= 7;
+    if (breakerKeys['ArrowRight'] || breakerKeys['d']) paddle.x += 7;
+    if (joystick.x === -1) paddle.x -= 7;
+    if (joystick.x === 1) paddle.x += 7;
+    if (paddle.x < 0) paddle.x = 0;
+    if (paddle.x + paddle.w > 600) paddle.x = 600 - paddle.w;
+
+    // Ball movement
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    // Wall collision
+    if (ball.x - ball.r < 0 || ball.x + ball.r > 600) ball.dx *= -1;
+    if (ball.y - ball.r < 0) ball.dy *= -1;
+
+    // Paddle collision
+    if (ball.y + ball.r >= paddle.y && ball.x >= paddle.x && ball.x <= paddle.x + paddle.w) {
+        ball.dy = -Math.abs(ball.dy);
+        ball.dx = ((ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2)) * 5;
+        sfx.hover();
+    }
+
+    // Brick collision
+    bricks.forEach(b => {
+        if (b.active) {
+            if (ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w && ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h) {
+                b.active = false;
+                ball.dy *= -1;
+                breakerScore += 10;
+                document.getElementById('breaker-score').textContent = `Score: ${breakerScore}`;
+                sfx.click();
+            }
+        }
+    });
+
+    // Floor collision
+    if (ball.y + ball.r > 400) {
+        breakerLives--;
+        document.getElementById('breaker-lives').textContent = `Lives: ${breakerLives}`;
+        sfx.error();
+        if (breakerLives <= 0) {
+            breakerActive = false;
+            document.getElementById('breaker-overlay').classList.remove('hidden');
+            document.getElementById('breaker-msg').textContent = 'GAME OVER';
+        } else {
+            resetBall();
+        }
+    }
+
+    // Win check
+    if (bricks.every(b => !b.active)) {
+        breakerActive = false;
+        document.getElementById('breaker-overlay').classList.remove('hidden');
+        document.getElementById('breaker-msg').textContent = 'YOU WIN!';
+        sfx.win();
+    }
+
+    drawBreaker();
+    if (breakerActive) breakerAnimId = requestAnimationFrame(updateBreaker);
+}
+
+// ==========================================
+// GAME 5: TERRITORY RUSH
+// ==========================================
+const terrCanvas = document.getElementById('territory-canvas');
+const terrCtx = terrCanvas ? terrCanvas.getContext('2d') : null;
+const gridSize = 20; // 30x20 grid
+let terrActive = false;
+let terrAnimId;
+let grid = [];
+let playerPos = { x: 5, y: 10 };
+let aiPos = { x: 24, y: 10 };
+let terrKeys = {};
+let lastMoveTime = 0;
+let aiLastMoveTime = 0;
+
+function initTerritoryGame() {
+    terrActive = false;
+    cancelAnimationFrame(terrAnimId);
+    grid = [];
+    for (let i = 0; i < 30; i++) {
+        grid[i] = [];
+        for (let j = 0; j < 20; j++) grid[i][j] = 0;
+    }
+    playerPos = { x: 5, y: 10 };
+    aiPos = { x: 24, y: 10 };
+    grid[playerPos.x][playerPos.y] = 1;
+    grid[aiPos.x][aiPos.y] = 2;
+    document.getElementById('territory-overlay').classList.remove('hidden');
+    document.getElementById('territory-msg').textContent = 'Press Start';
+    updateTerritoryScore();
+    drawTerritory();
+}
+
+function updateTerritoryScore() {
+    let p = 0, a = 0;
+    for (let i = 0; i < 30; i++) {
+        for (let j = 0; j < 20; j++) {
+            if (grid[i][j] === 1) p++;
+            if (grid[i][j] === 2) a++;
+        }
+    }
+    document.getElementById('territory-score-player').textContent = `Player: ${p}`;
+    document.getElementById('territory-score-ai').textContent = `AI: ${a}`;
+    return { p, a };
+}
+
+const btnTerritoryStart = document.getElementById('btn-territory-start');
+if (btnTerritoryStart) {
+    btnTerritoryStart.addEventListener('click', () => {
+        sfx.click();
+        initTerritoryGame();
+        document.getElementById('territory-overlay').classList.add('hidden');
+        terrActive = true;
+        lastMoveTime = Date.now();
+        aiLastMoveTime = Date.now();
+        updateTerritory();
+    });
+}
+
+function drawTerritory() {
+    if (!terrCtx) return;
+    terrCtx.clearRect(0, 0, 600, 400);
+    for (let i = 0; i < 30; i++) {
+        for (let j = 0; j < 20; j++) {
+            if (grid[i][j] === 1) terrCtx.fillStyle = '#00f0ff'; // Player
+            else if (grid[i][j] === 2) terrCtx.fillStyle = '#ff003c'; // AI
+            else terrCtx.fillStyle = 'rgba(255,255,255,0.05)';
+            terrCtx.fillRect(i * gridSize, j * gridSize, gridSize - 1, gridSize - 1);
+        }
+    }
+    // Highlight heads
+    terrCtx.fillStyle = '#fff';
+    terrCtx.fillRect(playerPos.x * gridSize + 4, playerPos.y * gridSize + 4, 12, 12);
+    terrCtx.fillRect(aiPos.x * gridSize + 4, aiPos.y * gridSize + 4, 12, 12);
+}
+
+function updateTerritory() {
+    if (!terrActive) return;
+
+    let now = Date.now();
+
+    // Player move (debounced 80ms)
+    if (now - lastMoveTime > 80) {
+        let moved = false;
+        if ((terrKeys['ArrowUp'] || terrKeys['w'] || terrKeys['2']) && playerPos.y > 0) { playerPos.y--; moved = true; }
+        else if ((terrKeys['ArrowDown'] || terrKeys['s'] || terrKeys['8']) && playerPos.y < 19) { playerPos.y++; moved = true; }
+        else if ((terrKeys['ArrowLeft'] || terrKeys['a'] || terrKeys['4']) && playerPos.x > 0) { playerPos.x--; moved = true; }
+        else if ((terrKeys['ArrowRight'] || terrKeys['d'] || terrKeys['6']) && playerPos.x < 29) { playerPos.x++; moved = true; }
+
+        if (moved) {
+            grid[playerPos.x][playerPos.y] = 1;
+            lastMoveTime = now;
+            sfx.hover();
+        }
+    }
+
+    // AI move (random every 100ms)
+    if (now - aiLastMoveTime > 100) {
+        let dirs = [];
+        if (aiPos.x > 0) dirs.push({ dx: -1, dy: 0 });
+        if (aiPos.x < 29) dirs.push({ dx: 1, dy: 0 });
+        if (aiPos.y > 0) dirs.push({ dx: 0, dy: -1 });
+        if (aiPos.y < 19) dirs.push({ dx: 0, dy: 1 });
+
+        // Seek unowned territory if possible
+        let validDirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] === 0);
+        if (validDirs.length === 0) validDirs = dirs; // fallback
+
+        let move = validDirs[Math.floor(Math.random() * validDirs.length)];
+        aiPos.x += move.dx;
+        aiPos.y += move.dy;
+        grid[aiPos.x][aiPos.y] = 2;
+        aiLastMoveTime = now;
+    }
+
+    let scores = updateTerritoryScore();
+    if (scores.p + scores.a === 600) {
+        terrActive = false;
+        document.getElementById('territory-overlay').classList.remove('hidden');
+        if (scores.p > scores.a) {
+            document.getElementById('territory-msg').textContent = 'YOU WIN!';
+            sfx.win();
+        } else {
+            document.getElementById('territory-msg').textContent = 'AI WINS!';
+            sfx.error();
+        }
+    }
+
+    drawTerritory();
+    if (terrActive) terrAnimId = requestAnimationFrame(updateTerritory);
+}
+
+// ==========================================
+// GAME 6: REACTION DUEL
+// ==========================================
+let reactState = 'idle'; // idle, wait, ready
+let reactTimeout;
+let reactStartTime;
+let reactBest = Infinity;
+
+function initReactionGame() {
+    reactState = 'idle';
+    clearTimeout(reactTimeout);
+    document.getElementById('reaction-flash-text').textContent = 'Click/Press Space to Start';
+    document.getElementById('reaction-flash-text').className = 'number-flash';
+    document.getElementById('reaction-display').classList.remove('glow-green-border', 'glow-red-border');
+}
+
+const btnReactionReset = document.getElementById('btn-reaction-reset');
+if (btnReactionReset) {
+    btnReactionReset.addEventListener('click', () => {
+        sfx.click();
+        reactBest = Infinity;
+        document.getElementById('reaction-best').textContent = `Best: -- ms`;
+        initReactionGame();
+    });
+}
+
+function handleReactionAction() {
+    if (reactState === 'idle') {
+        sfx.click();
+        reactState = 'wait';
+        document.getElementById('reaction-flash-text').textContent = 'Wait for Green...';
+        document.getElementById('reaction-display').classList.remove('glow-green-border', 'glow-red-border');
+        document.getElementById('reaction-display').classList.add('glow-red-border');
+
+        // Random time 2-5 seconds
+        let delay = 2000 + Math.random() * 3000;
+
+        // 20% chance for a fake signal
+        if (Math.random() < 0.2) {
+            reactTimeout = setTimeout(() => {
+                document.getElementById('reaction-flash-text').textContent = 'FAKE!';
+                document.getElementById('reaction-flash-text').classList.add('flash-green'); // actually fake
+                sfx.hover();
+                setTimeout(() => {
+                    document.getElementById('reaction-flash-text').classList.remove('flash-green');
+                    document.getElementById('reaction-flash-text').textContent = 'Wait...';
+                }, 400);
+
+                reactTimeout = setTimeout(triggerReady, delay - 1000);
+            }, delay - 1000);
+        } else {
+            reactTimeout = setTimeout(triggerReady, delay);
+        }
+    } else if (reactState === 'wait') {
+        // Too early
+        clearTimeout(reactTimeout);
+        sfx.error();
+        applyErrorShake(document.getElementById('reaction-display'));
+        document.getElementById('reaction-flash-text').textContent = 'Too Early! Click to Try Again';
+        reactState = 'idle';
+    } else if (reactState === 'ready') {
+        // Reacted
+        let time = Date.now() - reactStartTime;
+        sfx.win();
+        document.getElementById('reaction-flash-text').textContent = `${time} ms`;
+        document.getElementById('reaction-current').textContent = `Current: ${time} ms`;
+        if (time < reactBest) {
+            reactBest = time;
+            document.getElementById('reaction-best').textContent = `Best: ${time} ms`;
+        }
+        reactState = 'idle';
+    }
+}
+
+function triggerReady() {
+    reactState = 'ready';
+    reactStartTime = Date.now();
+    sfx.flash();
+    document.getElementById('reaction-display').classList.remove('glow-red-border');
+    document.getElementById('reaction-display').classList.add('glow-green-border');
+    document.getElementById('reaction-flash-text').textContent = 'NOW!';
+    document.getElementById('reaction-flash-text').classList.add('flash-green');
+    setTimeout(() => {
+        document.getElementById('reaction-flash-text').classList.remove('flash-green');
+    }, 500);
+}
+
+const reactionDisplay = document.getElementById('reaction-display');
+if (reactionDisplay) {
+    reactionDisplay.addEventListener('click', handleReactionAction);
+}
+
+// Global Event Listener for keydown/keyup for new games
+window.addEventListener('keydown', (e) => {
+    breakerKeys[e.key] = true;
+    terrKeys[e.key] = true;
+
+    // Spacebar mapping for reaction
+    if (e.code === 'Space' && document.body.getAttribute('data-theme') === 'reaction') {
+        e.preventDefault(); // prevent scroll
+        handleReactionAction();
+    }
+});
+window.addEventListener('keyup', (e) => {
+    breakerKeys[e.key] = false;
+    terrKeys[e.key] = false;
+});
+
+
+function handleESPInput(key) {
+
+    const theme = document.body.getAttribute('data-theme');
+
+    // 🔴 GLOBAL CONTROLS
+    if (key === '#') {
+        // SUBMIT based on active game
+        if (theme === 'memory') {
+            const event = new KeyboardEvent('keydown', { key: 'Enter' });
+            memInput.dispatchEvent(event);
+        }
+
+        if (theme === 'guess') {
+            handleGuess();
+        }
+
+        if (theme === 'sequence') {
+            verifySequence(false);
+        }
+
+        if (theme === 'reaction') {
+            handleReactionAction();
+        }
+
+        return; // ❗ STOP further execution
+    }
+
+    // OPTIONAL: CLEAR INPUT
+    if (key === '*') {
+        const theme = document.body.getAttribute('data-theme');
+
+        if (theme === 'memory' && !memInput.disabled) {
+            memInput.value = memInput.value.slice(0, -1);
+        }
+
+        if (theme === 'guess') {
+            guessInput.value = guessInput.value.slice(0, -1);
+        }
+
+        if (theme === 'sequence') {
+            seqInput.value = seqInput.value.slice(0, -1);
+        }
+
+        return;
+    }
+
+    // 🧠 MEMORY GAME
+    if (theme === 'memory') {
+        if ((memMode === 'pvc' || memMode === 'pvp') && !memInput.disabled) {
+            memInput.value += key;
+        }
+    }
+
+    // 🎯 GUESS GAME
+    if (theme === 'guess') {
+        guessInput.value += key;
+    }
+
+    // 🔢 SEQUENCE GAME
+    if (theme === 'sequence') {
+        seqInput.value += key;
+    }
+
+    // ESP mapping for Breaker & Territory
+    if (theme === 'breaker') {
+        if (key === '4') breakerKeys['ArrowLeft'] = true;
+        if (key === '6') breakerKeys['ArrowRight'] = true;
+        setTimeout(() => {
+            breakerKeys['ArrowLeft'] = false;
+            breakerKeys['ArrowRight'] = false;
+        }, 150);
+    }
+
+    if (theme === 'territory') {
+        if (key === '4') terrKeys['ArrowLeft'] = true;
+        if (key === '6') terrKeys['ArrowRight'] = true;
+        if (key === '2') terrKeys['ArrowUp'] = true;
+        if (key === '8') terrKeys['ArrowDown'] = true;
+        setTimeout(() => {
+            terrKeys['ArrowLeft'] = false;
+            terrKeys['ArrowRight'] = false;
+            terrKeys['ArrowUp'] = false;
+            terrKeys['ArrowDown'] = false;
+        }, 150);
+    }
+}
+
+
+function handleJoystick() {
+    const theme = document.body.getAttribute('data-theme');
+
+    // 🎮 BUTTON → same as #
+    if (joystick.btn === 0) {
+        handleESPInput('#');
+    }
+
+    // 🎮 BALL BREAKER
+    if (theme === 'breaker') {
+        if (joystick.x === -1) paddle.x -= 7;
+        if (joystick.x === 1) paddle.x += 7;
+    }
+
+    // 🎮 TERRITORY
+    if (theme === 'territory') {
+        if (joystick.x === -1) terrKeys['ArrowLeft'] = true;
+        if (joystick.x === 1) terrKeys['ArrowRight'] = true;
+        if (joystick.y === -1) terrKeys['ArrowUp'] = true;
+        if (joystick.y === 1) terrKeys['ArrowDown'] = true;
+
+        setTimeout(() => {
+            terrKeys['ArrowLeft'] = false;
+            terrKeys['ArrowRight'] = false;
+            terrKeys['ArrowUp'] = false;
+            terrKeys['ArrowDown'] = false;
+        }, 100);
+    }
+
+    // 🎮 REACTION
+    if (theme === 'reaction' && joystick.btn === 0) {
+        handleReactionAction();
+    }
+}
