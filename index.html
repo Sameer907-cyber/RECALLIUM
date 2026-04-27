@@ -18,6 +18,9 @@
     <div class="theme-bg" id="bg-home"></div>
     <div class="theme-bg" id="bg-memory"></div>
     <div class="theme-bg" id="bg-sequence"></div>
+    <div class="theme-bg" id="bg-breaker"></div>
+    <div class="theme-bg" id="bg-territory"></div>
+    <div class="theme-bg" id="bg-reaction"></div>
     <canvas id="bg-canvas"></canvas>
     <div id="crt-overlay"></div>
 
@@ -59,6 +62,33 @@
                         <p>Memorize the rapid sequence before it vanishes.</p>
                     </div>
                     <div class="card-glow"></div>
+                </div>
+
+                <div class="game-card fade-in-up delay-1" data-target="view-breaker">
+                    <div class="card-inner">
+                        <div class="card-icon">🧱</div>
+                        <h2>Ball Breaker</h2>
+                        <p>Smash the neon bricks in this fast-paced physics classic.</p>
+                    </div>
+                    <div class="card-glow-alt"></div>
+                </div>
+
+                <div class="game-card fade-in-up delay-2" data-target="view-territory">
+                    <div class="card-inner">
+                        <div class="card-icon">🗺️</div>
+                        <h2>Territory Rush</h2>
+                        <p>Capture grid cells and outmaneuver the AI opponent.</p>
+                    </div>
+                    <div class="card-glow"></div>
+                </div>
+
+                <div class="game-card fade-in-up delay-3" data-target="view-reaction">
+                    <div class="card-inner">
+                        <div class="card-icon">⚡</div>
+                        <h2>Reaction Duel</h2>
+                        <p>Test your reflexes against random signals and fakes.</p>
+                    </div>
+                    <div class="card-glow-alt"></div>
                 </div>
             </div>
         </section>
@@ -175,17 +205,102 @@
                 </div>
             </div>
         </section>
-        <div id="cyber-hud">
-    <div class="hud-left">
-        <div class="hud-box">SYSTEM ONLINE</div>
-        <div class="hud-box">MEMORY CORE ACTIVE</div>
-    </div>
 
-    <div class="hud-right">
-        <div class="hud-box" id="hud-time"></div>
-        <div class="hud-box">FPS: <span id="fps">--</span></div>
-    </div>
-</div>
+        <!-- ============================================== -->
+        <!-- VIEW: BALL BREAKER                             -->
+        <!-- ============================================== -->
+        <section id="view-breaker" class="view">
+            <div class="top-bar glass-panel">
+                <button class="btn-back">⬅ Menu</button>
+                <h2 class="view-title">🧱 Ball Breaker</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="breaker-game-wrapper glass-panel padded">
+                    <div class="game-hub-header">
+                        <span id="breaker-score" class="pill pill-cyan">Score: 0</span>
+                        <span id="breaker-lives" class="pill pill-magenta">Lives: 3</span>
+                    </div>
+                    <div class="display-box canvas-container"
+                        style="padding: 0; min-height: 400px; width: 100%; position: relative;">
+                        <canvas id="breaker-canvas" width="600" height="400"
+                            style="width:100%; height:100%; display:block; border-radius: 15px;"></canvas>
+                        <div id="breaker-overlay" class="game-overlay">
+                            <h3 id="breaker-msg">Press Start</h3>
+                        </div>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn-secondary outline" id="btn-breaker-start">Start Game</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- VIEW: TERRITORY RUSH                           -->
+        <!-- ============================================== -->
+        <section id="view-territory" class="view">
+            <div class="top-bar glass-panel">
+                <button class="btn-back">⬅ Menu</button>
+                <h2 class="view-title">🗺️ Territory Rush</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="territory-game-wrapper glass-panel padded">
+                    <div class="game-hub-header">
+                        <span id="territory-score-player" class="pill pill-cyan">Player: 1</span>
+                        <span id="territory-score-ai" class="pill pill-magenta">AI: 1</span>
+                    </div>
+                    <div class="display-box canvas-container"
+                        style="padding: 0; min-height: 400px; width: 100%; position: relative;">
+                        <canvas id="territory-canvas" width="600" height="400"
+                            style="width:100%; height:100%; display:block; border-radius: 15px;"></canvas>
+                        <div id="territory-overlay" class="game-overlay">
+                            <h3 id="territory-msg">Press Start</h3>
+                        </div>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn-secondary outline" id="btn-territory-start">Start Rush</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- VIEW: REACTION DUEL                            -->
+        <!-- ============================================== -->
+        <section id="view-reaction" class="view">
+            <div class="top-bar glass-panel">
+                <button class="btn-back">⬅ Menu</button>
+                <h2 class="view-title">⚡ Reaction Duel</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="reaction-game-wrapper glass-panel padded">
+                    <div class="game-hub-header">
+                        <span id="reaction-best" class="pill pill-cyan">Best: -- ms</span>
+                        <span id="reaction-current" class="pill pill-magenta">Current: -- ms</span>
+                    </div>
+                    <div class="display-box" id="reaction-display" style="cursor: pointer; user-select: none;">
+                        <span class="number-flash" id="reaction-flash-text">Click to Start</span>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn-secondary outline" id="btn-reaction-reset">Reset Stats</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <div id="cyber-hud">
+            <div class="hud-left">
+                <div class="hud-box">SYSTEM ONLINE</div>
+                <div class="hud-box">MEMORY CORE ACTIVE</div>
+            </div>
+
+            <div class="hud-right">
+                <div class="hud-box" id="hud-time"></div>
+                <div class="hud-box">FPS: <span id="fps">--</span></div>
+            </div>
+        </div>
 
     </div>
 
