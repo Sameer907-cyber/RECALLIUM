@@ -39,6 +39,24 @@ body[data-theme="sequence"] {
     --neon-green: #ffff00;
     --bg-deep: #110500;
 }
+body[data-theme="breaker"] {
+    --neon-cyan: #ff00ff;
+    --neon-magenta: #00ffff;
+    --neon-green: #ffaa00;
+    --bg-deep: #110011;
+}
+body[data-theme="territory"] {
+    --neon-cyan: #00ff00;
+    --neon-magenta: #ff0055;
+    --neon-green: #00ffff;
+    --bg-deep: #001105;
+}
+body[data-theme="reaction"] {
+    --neon-cyan: #ffcc00;
+    --neon-magenta: #cc00ff;
+    --neon-green: #ffffff;
+    --bg-deep: #1a1a00;
+}
 
 * {
     box-sizing: border-box;
@@ -110,7 +128,9 @@ p { font-weight: 300; line-height: 1.6; color: var(--text-muted); }
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    overflow-y: auto;
+    overflow-x: hidden;
     opacity: 0;
     pointer-events: none;
     transform: scale(1.05);
@@ -662,4 +682,26 @@ html, body {
 @keyframes hud-flicker {
     0% { opacity: 0.8; }
     100% { opacity: 1; }
+}
+
+.game-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 15px;
+    z-index: 10;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+.game-overlay.hidden {
+    opacity: 0;
+}
+.game-overlay h3 {
+    font-size: 2.5rem;
+    color: #fff;
+    text-transform: uppercase;
+    text-shadow: 0 0 20px var(--neon-cyan);
 }
