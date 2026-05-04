@@ -27,10 +27,10 @@ body[data-theme="memory"] {
     --neon-green: #00ff66;
     --bg-deep: #001111;
 }
-body[data-theme="guess"] {
-    --neon-cyan: #b000ff;
-    --neon-magenta: #3300ff;
-    --neon-green: #ff0055;
+body[data-theme="dodge"] {
+    --neon-cyan: #00f0ff;
+    --neon-magenta: #ff003c;
+    --neon-green: #00ff66;
     --bg-deep: #050011;
 }
 body[data-theme="sequence"] {
@@ -56,6 +56,12 @@ body[data-theme="reaction"] {
     --neon-magenta: #cc00ff;
     --neon-green: #ffffff;
     --bg-deep: #1a1a00;
+}
+body[data-theme="pressure"] {
+    --neon-cyan: #ffff00;
+    --neon-magenta: #ff5500;
+    --neon-green: #00ffaa;
+    --bg-deep: #110800;
 }
 
 * {
@@ -446,13 +452,12 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 }
 @keyframes scan-line { 0% { left: -100%; } 100% { left: 200%; } }
 
-.number-flash, .number-sequence, #guess-feedback-text {
+.number-flash, .number-sequence {
     font-size: 4rem;
     font-weight: 900;
     color: #fff;
     text-shadow: 0 0 20px rgba(255,255,255,0.5);
 }
-#guess-feedback-text { font-size: 2rem; }
 
 /* Pills / Badges */
 .game-hub-header {
@@ -509,7 +514,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
     animation: plasma-shift 15s ease-in-out infinite alternate;
     transition: opacity 1s ease;
 }
-body[data-theme="guess"] #plasma-bg {
+body[data-theme="dodge"] #plasma-bg {
     opacity: 0.8;
 }
 @keyframes plasma-shift {
@@ -528,6 +533,10 @@ body[data-theme="guess"] #plasma-bg {
 body[data-theme="home"] #bg-home { opacity: 1; }
 body[data-theme="memory"] #bg-memory { opacity: 1; }
 body[data-theme="sequence"] #bg-sequence { opacity: 1; }
+body[data-theme="breaker"] #bg-breaker { opacity: 1; }
+body[data-theme="territory"] #bg-territory { opacity: 1; }
+body[data-theme="reaction"] #bg-reaction { opacity: 1; }
+body[data-theme="pressure"] #bg-pressure { opacity: 1; }
 
 #bg-home {
     perspective: 800px;
@@ -573,6 +582,15 @@ body[data-theme="sequence"] #bg-sequence { opacity: 1; }
     animation: rain-scroll 8s linear infinite;
 }
 @keyframes rain-scroll { 0% { background-position: 0 0; } 100% { background-position: 0 200%; } }
+
+#bg-pressure {
+    background: radial-gradient(circle at 50% 50%, rgba(255, 85, 0, 0.1) 0%, transparent 60%);
+    animation: pulse-pressure 1s infinite alternate;
+}
+@keyframes pulse-pressure {
+    0% { filter: brightness(1) drop-shadow(0 0 10px rgba(255,85,0,0.1)); transform: scale(1); }
+    100% { filter: brightness(1.5) drop-shadow(0 0 20px rgba(255,85,0,0.3)); transform: scale(1.05); }
+}
 
 #crt-overlay {
     position: absolute;
@@ -705,3 +723,39 @@ html, body {
     text-transform: uppercase;
     text-shadow: 0 0 20px var(--neon-cyan);
 }
+
+/* =========================================
+   PRESSURE CORE STYLES
+   ========================================= */
+.core-alert {
+    position: absolute;
+    width: 140px;
+    background: rgba(10, 10, 20, 0.9);
+    border: 2px solid var(--neon-cyan);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+    animation: fade-in 0.2s ease forwards;
+    z-index: 5;
+    user-select: none;
+    transform: translate(-50%, -50%);
+}
+
+.core-alert.type-code { border-color: var(--neon-cyan); box-shadow: 0 0 15px rgba(0, 240, 255, 0.3); }
+.core-alert.type-direction { border-color: var(--neon-green); box-shadow: 0 0 15px rgba(0, 255, 102, 0.3); }
+.core-alert.type-ignore { border-color: var(--neon-magenta); box-shadow: 0 0 15px rgba(255, 0, 60, 0.3); animation: shake 1.5s infinite; }
+.core-alert.type-hold { border-color: #ffaa00; box-shadow: 0 0 15px rgba(255, 170, 0, 0.3); }
+.core-alert.type-multi { border-color: #b000ff; box-shadow: 0 0 15px rgba(176, 0, 255, 0.3); }
+
+.core-alert-icon { font-size: 2rem; margin-bottom: 5px; font-weight: 900; color: #fff; }
+.core-alert-desc { font-size: 0.8rem; text-transform: uppercase; color: #ccc; text-align: center; margin-bottom: 8px; font-weight: 700; }
+
+.core-progress { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.2); border-radius: 3px; overflow: hidden; }
+.core-progress-bar { height: 100%; background: var(--neon-cyan); width: 100%; transform-origin: left; }
+.core-alert.type-direction .core-progress-bar { background: var(--neon-green); }
+.core-alert.type-ignore .core-progress-bar { background: var(--neon-magenta); }
+.core-alert.type-hold .core-progress-bar { background: #ffaa00; }
+.core-alert.type-multi .core-progress-bar { background: #b000ff; }
