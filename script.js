@@ -1,16 +1,28 @@
 let joystick = {
     x: 0,
     y: 0,
-    btn: 1
+    btn: 1,
+    btnLastState: false,
+    coreLastInput: null
 };
 
-const ESP_IP = "192.168.1.9";
+const ESP_IP = "10.54.228.140";
 
 const socket = new WebSocket(`ws://${ESP_IP}:81/`);
 
 socket.onopen = () => {
     console.log("Connected to ESP 🎮");
 };
+
+function normalizeDirection(dir) {
+    const map = {
+        "UP": "LEFT",
+        "DOWN": "RIGHT",
+        "LEFT": "DOWN",
+        "RIGHT": "UP"
+    };
+    return map[dir] || dir;
+}
 
 socket.onmessage = (event) => {
     const data = event.data.trim();
@@ -25,8 +37,9 @@ socket.onmessage = (event) => {
 
         handleJoystick();
     } else {
-
-        handleESPInput(data);
+        let key = normalizeDirection(data);
+        console.log("RAW:", data, "MAPPED:", key);
+        handleESPInput(key);
     }
 };
 
@@ -270,11 +283,11 @@ function navigateTo(targetId) {
     setTimeout(() => {
         document.getElementById(targetId).classList.add('active');
         if (targetId === 'view-memory') resetMemoryView();
-        if (targetId === 'view-guess') initGuessGame();
+        if (targetId === 'view-dodge') initDodgeGame();
         if (targetId === 'view-sequence') initSequenceGame();
         if (targetId === 'view-breaker') initBreakerGame();
         if (targetId === 'view-territory') initTerritoryGame();
-        if (targetId === 'view-reaction') initReactionGame();
+        if (targetId === 'view-pressure') initPressureGame();
     }, 350);
 }
 
@@ -512,66 +525,265 @@ function switchPvPTurn() {
 
 
 // ==========================================
-// GAME 2: GUESS THE NUMBER
+// GAME 2: NEON SKY DODGE
 // ==========================================
-const guessInput = document.getElementById('guess-input');
-const guessBtn = document.getElementById('btn-guess-submit');
-const guessReset = document.getElementById('btn-guess-reset');
-const guessFeedback = document.getElementById('guess-feedback-text');
-const guessAttemptsBadge = document.getElementById('guess-attempts');
-const guessFeedbackBox = document.getElementById('guess-feedback');
+const dodgeCanvas = document.getElementById('dodge-canvas');
+const dodgeCtx = dodgeCanvas ? dodgeCanvas.getContext('2d') : null;
+const dodgeScoreBadge = document.getElementById('dodge-score');
+const dodgeLivesBadge = document.getElementById('dodge-lives');
+const dodgeSpeedBadge = document.getElementById('dodge-speed');
+const dodgeOverlay = document.getElementById('dodge-overlay');
+const dodgeMsg = document.getElementById('dodge-msg');
 
-let guessTarget = 0;
-let guessAttempts = 0;
-let guessActive = false;
+let dodgeState = 'idle'; // idle, running, paused, gameover
+let dodgeScore = 0;
+let dodgeLives = 3;
+let dodgeSpeedLevel = 1;
+let dodgeFrames = 0;
+let dodgeAnimFrame = null;
 
-function initGuessGame() {
-    guessTarget = Math.floor(Math.random() * 100) + 1;
-    guessAttempts = 0;
-    guessActive = true;
-    guessAttemptsBadge.textContent = `Attempts: 0`;
-    guessFeedback.textContent = "Number 1-100 locked in.";
-    guessFeedback.style.color = '#fff';
-    guessInput.value = '';
-    guessInput.disabled = false;
-    guessFeedbackBox.className = 'feedback-box display-box';
+let player = { x: 300, y: 350, w: 20, h: 20, vx: 0, vy: 0, speed: 5, invincibility: 0, boost: 1 };
+let dodgeObstacles = [];
+let dodgeParticles = [];
+let dodgePowerups = [];
+
+// Keyboard support
+let dodgeKeys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, s: false, d: false };
+
+window.addEventListener('keydown', (e) => {
+    if (document.body.getAttribute('data-theme') !== 'dodge') return;
+    if (dodgeKeys.hasOwnProperty(e.key)) dodgeKeys[e.key] = true;
+    if (e.key === ' ' || e.key === 'Enter') handleESPInput('#');
+    if (e.key.toLowerCase() === 'p') handleESPInput('*');
+});
+window.addEventListener('keyup', (e) => {
+    if (document.body.getAttribute('data-theme') !== 'dodge') return;
+    if (dodgeKeys.hasOwnProperty(e.key)) dodgeKeys[e.key] = false;
+});
+
+function initDodgeGame() {
+    dodgeState = 'idle';
+    dodgeScore = 0;
+    dodgeLives = 3;
+    dodgeSpeedLevel = 1;
+    player.x = dodgeCanvas.width / 2 - player.w / 2;
+    player.y = dodgeCanvas.height - 50;
+    dodgeObstacles = [];
+    dodgeParticles = [];
+    dodgePowerups = [];
+
+    updateDodgeUI();
+    dodgeOverlay.classList.remove('hidden');
+    dodgeMsg.textContent = "Press # to Start";
+
+    dodgeCtx.clearRect(0, 0, dodgeCanvas.width, dodgeCanvas.height);
+    drawPlayer();
 }
 
-guessReset.addEventListener('click', () => { sfx.click(); initGuessGame(); });
+function startDodgeGame() {
+    if (dodgeState === 'running') return;
+    sfx.click();
+    dodgeState = 'running';
+    dodgeScore = 0;
+    dodgeLives = 3;
+    dodgeSpeedLevel = 1;
+    dodgeFrames = 0;
+    player.x = dodgeCanvas.width / 2 - player.w / 2;
+    player.y = dodgeCanvas.height - 50;
+    dodgeObstacles = [];
+    dodgeParticles = [];
+    dodgePowerups = [];
 
-function handleGuess() {
-    if (!guessActive) return;
-    const val = parseInt(guessInput.value);
-    if (isNaN(val) || val < 1 || val > 100) {
-        applyErrorShake(guessInput);
-        return;
-    }
+    updateDodgeUI();
+    dodgeOverlay.classList.add('hidden');
 
-    guessAttempts++;
-    guessAttemptsBadge.textContent = `Attempts: ${guessAttempts}`;
-
-    if (val === guessTarget) {
-        sfx.win();
-        guessActive = false;
-        guessFeedback.textContent = `Correct! It was ${guessTarget}`;
-        guessFeedback.style.color = 'var(--neon-green)';
-        guessFeedbackBox.classList.add('glow-green-border');
-        guessInput.disabled = true;
-    } else if (val < guessTarget) {
-        sfx.error();
-        guessFeedback.textContent = `${val} is TOO LOW`;
-        guessFeedback.style.color = 'var(--neon-cyan)';
-    } else {
-        sfx.error();
-        guessFeedback.textContent = `${val} is TOO HIGH`;
-        guessFeedback.style.color = 'var(--neon-magenta)';
-    }
-    guessInput.value = '';
-    guessInput.focus();
+    cancelAnimationFrame(dodgeAnimFrame);
+    updateDodgeGame();
 }
 
-guessBtn.addEventListener('click', handleGuess);
-guessInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleGuess(); });
+function updateDodgeUI() {
+    dodgeScoreBadge.textContent = `Score: ${Math.floor(dodgeScore)}`;
+    dodgeLivesBadge.textContent = `Lives: ${dodgeLives}`;
+    dodgeSpeedBadge.textContent = `Speed: ${dodgeSpeedLevel.toFixed(1)}x`;
+}
+
+function drawPlayer() {
+    dodgeCtx.fillStyle = 'var(--neon-cyan)';
+    dodgeCtx.shadowBlur = 15;
+    dodgeCtx.shadowColor = '#00f0ff';
+    if (player.invincibility > 0) {
+        if (dodgeFrames % 10 < 5) dodgeCtx.globalAlpha = 0.5;
+    }
+
+    dodgeCtx.beginPath();
+    dodgeCtx.moveTo(player.x + player.w / 2, player.y);
+    dodgeCtx.lineTo(player.x + player.w, player.y + player.h);
+    dodgeCtx.lineTo(player.x, player.y + player.h);
+    dodgeCtx.closePath();
+    dodgeCtx.fill();
+
+    dodgeCtx.globalAlpha = 1;
+    dodgeCtx.shadowBlur = 0;
+}
+
+function spawnDodgeParticle(x, y, color) {
+    dodgeParticles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+        life: 1,
+        color: color
+    });
+}
+
+function updateDodgeGame() {
+    if (dodgeState !== 'running') return;
+
+    dodgeFrames++;
+    dodgeCtx.clearRect(0, 0, dodgeCanvas.width, dodgeCanvas.height);
+
+    if (dodgeFrames % 60 === 0) {
+        dodgeScore += 10 * dodgeSpeedLevel;
+        dodgeSpeedLevel += 0.01;
+        updateDodgeUI();
+    }
+
+    if (player.invincibility > 0) player.invincibility--;
+
+    let kx = 0; let ky = 0;
+    if (dodgeKeys.ArrowLeft || dodgeKeys.a) kx = -1;
+    if (dodgeKeys.ArrowRight || dodgeKeys.d) kx = 1;
+    if (dodgeKeys.ArrowUp || dodgeKeys.w) ky = -1;
+    if (dodgeKeys.ArrowDown || dodgeKeys.s) ky = 1;
+
+    let moveX = player.vx || (kx * player.speed);
+    let moveY = player.vy || (ky * player.speed);
+
+    if (player.boost > 1) {
+        moveX *= player.boost;
+        moveY *= player.boost;
+        if (moveX !== 0 || moveY !== 0) {
+            spawnDodgeParticle(player.x + player.w / 2, player.y + player.h, '#00f0ff');
+        }
+        player.boost -= 0.02;
+        if (player.boost < 1) player.boost = 1;
+    }
+
+    player.x += moveX;
+    player.y += moveY;
+
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.w > dodgeCanvas.width) player.x = dodgeCanvas.width - player.w;
+    if (player.y < 0) player.y = 0;
+    if (player.y + player.h > dodgeCanvas.height) player.y = dodgeCanvas.height - player.h;
+
+    drawPlayer();
+
+    let spawnRate = Math.max(10, 40 - Math.floor(dodgeSpeedLevel * 5));
+    if (dodgeFrames % spawnRate === 0 && dodgeObstacles.length < 20) {
+        let isSide = Math.random() < 0.2;
+        let obs = {
+            x: isSide ? (Math.random() < 0.5 ? 0 : dodgeCanvas.width) : Math.random() * (dodgeCanvas.width - 30),
+            y: isSide ? Math.random() * (dodgeCanvas.height - 100) : -30,
+            w: 20 + Math.random() * 20,
+            h: 20 + Math.random() * 20,
+            vx: isSide ? (Math.random() < 0.5 ? 1 : -1) * 3 * dodgeSpeedLevel : 0,
+            vy: isSide ? 0 : (2 + Math.random() * 3) * dodgeSpeedLevel,
+            type: Math.random() < 0.1 ? 'fast' : 'normal'
+        };
+        if (obs.type === 'fast') { obs.vy *= 1.5; obs.w = 15; obs.h = 40; }
+        dodgeObstacles.push(obs);
+    }
+
+    if (dodgeFrames % 600 === 0 && Math.random() < 0.5) {
+        dodgePowerups.push({
+            x: Math.random() * (dodgeCanvas.width - 20),
+            y: -20, w: 20, h: 20, vy: 2, type: Math.random() < 0.5 ? 'shield' : 'slow'
+        });
+    }
+
+    for (let i = dodgePowerups.length - 1; i >= 0; i--) {
+        let p = dodgePowerups[i];
+        p.y += p.vy;
+        dodgeCtx.fillStyle = p.type === 'shield' ? '#00ff66' : '#ffcc00';
+        dodgeCtx.shadowBlur = 10;
+        dodgeCtx.shadowColor = dodgeCtx.fillStyle;
+        dodgeCtx.beginPath();
+        dodgeCtx.arc(p.x + p.w / 2, p.y + p.h / 2, 10, 0, Math.PI * 2);
+        dodgeCtx.fill();
+        dodgeCtx.shadowBlur = 0;
+
+        if (player.x < p.x + p.w && player.x + player.w > p.x &&
+            player.y < p.y + p.h && player.y + player.h > p.y) {
+            sfx.success();
+            if (p.type === 'shield') player.invincibility = 180;
+            if (p.type === 'slow') {
+                dodgeSpeedLevel = Math.max(1, dodgeSpeedLevel - 0.5);
+            }
+            updateDodgeUI();
+            dodgePowerups.splice(i, 1);
+            continue;
+        }
+        if (p.y > dodgeCanvas.height) dodgePowerups.splice(i, 1);
+    }
+
+    dodgeCtx.fillStyle = 'var(--neon-magenta)';
+    dodgeCtx.shadowBlur = 15;
+    dodgeCtx.shadowColor = '#ff003c';
+
+    for (let i = dodgeObstacles.length - 1; i >= 0; i--) {
+        let obs = dodgeObstacles[i];
+        obs.x += obs.vx;
+        obs.y += obs.vy;
+
+        dodgeCtx.fillRect(obs.x, obs.y, obs.w, obs.h);
+
+        if (player.invincibility <= 0 &&
+            player.x < obs.x + obs.w && player.x + player.w > obs.x &&
+            player.y < obs.y + obs.h && player.y + player.h > obs.y) {
+
+            sfx.error();
+            applyErrorShake(dodgeCanvas);
+            for (let j = 0; j < 15; j++) spawnDodgeParticle(player.x + 10, player.y + 10, '#ff003c');
+            dodgeLives--;
+            player.invincibility = 60;
+            updateDodgeUI();
+
+            dodgeObstacles.splice(i, 1);
+
+            if (dodgeLives <= 0) {
+                dodgeState = 'gameover';
+                dodgeCtx.shadowBlur = 0;
+                dodgeOverlay.classList.remove('hidden');
+                dodgeMsg.textContent = "GAME OVER";
+                return;
+            }
+            continue;
+        }
+
+        if (obs.y > dodgeCanvas.height || obs.x < -100 || obs.x > dodgeCanvas.width + 100) {
+            dodgeObstacles.splice(i, 1);
+        }
+    }
+    dodgeCtx.shadowBlur = 0;
+
+    for (let i = dodgeParticles.length - 1; i >= 0; i--) {
+        let p = dodgeParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 0.05;
+        if (p.life <= 0) { dodgeParticles.splice(i, 1); continue; }
+
+        dodgeCtx.fillStyle = p.color;
+        dodgeCtx.globalAlpha = p.life;
+        dodgeCtx.beginPath();
+        dodgeCtx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        dodgeCtx.fill();
+    }
+    dodgeCtx.globalAlpha = 1;
+
+    dodgeAnimFrame = requestAnimationFrame(updateDodgeGame);
+}
 
 
 // ==========================================
@@ -945,6 +1157,9 @@ let aiPos = { x: 24, y: 10 };
 let terrKeys = {};
 let lastMoveTime = 0;
 let aiLastMoveTime = 0;
+let playerTrail = [];
+let aiTrail = [];
+let terrMode = 'pve';
 
 function initTerritoryGame() {
     terrActive = false;
@@ -956,6 +1171,8 @@ function initTerritoryGame() {
     }
     playerPos = { x: 5, y: 10 };
     aiPos = { x: 24, y: 10 };
+    playerTrail = [];
+    aiTrail = [];
     grid[playerPos.x][playerPos.y] = 1;
     grid[aiPos.x][aiPos.y] = 2;
     document.getElementById('territory-overlay').classList.remove('hidden');
@@ -973,7 +1190,7 @@ function updateTerritoryScore() {
         }
     }
     document.getElementById('territory-score-player').textContent = `Player: ${p}`;
-    document.getElementById('territory-score-ai').textContent = `AI: ${a}`;
+    document.getElementById('territory-score-ai').textContent = terrMode === 'pve' ? `AI: ${a}` : `P2: ${a}`;
     return { p, a };
 }
 
@@ -990,17 +1207,37 @@ if (btnTerritoryStart) {
     });
 }
 
+const btnTerritoryMode = document.getElementById('btn-territory-mode');
+if (btnTerritoryMode) {
+    btnTerritoryMode.addEventListener('click', () => {
+        sfx.click();
+        if (terrMode === 'pve') {
+            terrMode = 'pvp';
+            btnTerritoryMode.textContent = 'Mode: PvP';
+            document.getElementById('territory-score-ai').textContent = 'P2: 1';
+        } else {
+            terrMode = 'pve';
+            btnTerritoryMode.textContent = 'Mode: Vs AI';
+            document.getElementById('territory-score-ai').textContent = 'AI: 1';
+        }
+        initTerritoryGame();
+    });
+}
+
 function drawTerritory() {
     if (!terrCtx) return;
     terrCtx.clearRect(0, 0, 600, 400);
     for (let i = 0; i < 30; i++) {
         for (let j = 0; j < 20; j++) {
-            if (grid[i][j] === 1) terrCtx.fillStyle = '#00f0ff'; // Player
-            else if (grid[i][j] === 2) terrCtx.fillStyle = '#ff003c'; // AI
-            else terrCtx.fillStyle = 'rgba(255,255,255,0.05)';
+            if (grid[i][j] === 1) { terrCtx.fillStyle = '#00f0ff'; terrCtx.shadowBlur = 5; terrCtx.shadowColor = '#00f0ff'; } // Player
+            else if (grid[i][j] === 2) { terrCtx.fillStyle = '#ff003c'; terrCtx.shadowBlur = 0; } // AI
+            else if (grid[i][j] === 3) { terrCtx.fillStyle = '#00ff66'; terrCtx.shadowBlur = 10; terrCtx.shadowColor = '#00ff66'; } // Trail
+            else if (grid[i][j] === 4) { terrCtx.fillStyle = '#ffaa00'; terrCtx.shadowBlur = 10; terrCtx.shadowColor = '#ffaa00'; } // AI Trail
+            else { terrCtx.fillStyle = 'rgba(255,255,255,0.05)'; terrCtx.shadowBlur = 0; }
             terrCtx.fillRect(i * gridSize, j * gridSize, gridSize - 1, gridSize - 1);
         }
     }
+    terrCtx.shadowBlur = 0;
     // Highlight heads
     terrCtx.fillStyle = '#fff';
     terrCtx.fillRect(playerPos.x * gridSize + 4, playerPos.y * gridSize + 4, 12, 12);
@@ -1015,35 +1252,169 @@ function updateTerritory() {
     // Player move (debounced 80ms)
     if (now - lastMoveTime > 80) {
         let moved = false;
-        if ((terrKeys['ArrowUp'] || terrKeys['w'] || terrKeys['2']) && playerPos.y > 0) { playerPos.y--; moved = true; }
-        else if ((terrKeys['ArrowDown'] || terrKeys['s'] || terrKeys['8']) && playerPos.y < 19) { playerPos.y++; moved = true; }
-        else if ((terrKeys['ArrowLeft'] || terrKeys['a'] || terrKeys['4']) && playerPos.x > 0) { playerPos.x--; moved = true; }
-        else if ((terrKeys['ArrowRight'] || terrKeys['d'] || terrKeys['6']) && playerPos.x < 29) { playerPos.x++; moved = true; }
+        let nextX = playerPos.x;
+        let nextY = playerPos.y;
+
+        if ((terrKeys['w'] || terrKeys['2']) && playerPos.y > 0) { nextY--; moved = true; }
+        else if ((terrKeys['s'] || terrKeys['8']) && playerPos.y < 19) { nextY++; moved = true; }
+        else if ((terrKeys['a'] || terrKeys['4']) && playerPos.x > 0) { nextX--; moved = true; }
+        else if ((terrKeys['d'] || terrKeys['6']) && playerPos.x < 29) { nextX++; moved = true; }
 
         if (moved) {
-            grid[playerPos.x][playerPos.y] = 1;
+            let targetState = grid[nextX][nextY];
+
+            if (targetState === 3) {
+                terrActive = false;
+                document.getElementById('territory-overlay').classList.remove('hidden');
+                document.getElementById('territory-msg').textContent = terrMode === 'pve' ? 'TRAIL COLLISION!' : 'P1 TRAIL COLLISION! P2 WINS!';
+                sfx.error();
+                return;
+            } else if (targetState === 4) {
+                terrActive = false;
+                document.getElementById('territory-overlay').classList.remove('hidden');
+                document.getElementById('territory-msg').textContent = terrMode === 'pve' ? 'YOU CUT AI TRAIL! YOU WIN!' : 'P1 CUT P2 TRAIL! P1 WINS!';
+                sfx.win();
+                return;
+            }
+
+            playerPos.x = nextX;
+            playerPos.y = nextY;
+
+            if (targetState === 1) {
+                if (playerTrail.length > 2) {
+                    fillTerritory(1, 3, playerTrail);
+                } else if (playerTrail.length > 0) {
+                    for (let t of playerTrail) grid[t.x][t.y] = 0;
+                    playerTrail = [];
+                }
+            } else if (targetState === 0 || targetState === 2) {
+                grid[playerPos.x][playerPos.y] = 3;
+                playerTrail.push({ x: playerPos.x, y: playerPos.y });
+            }
+
             lastMoveTime = now;
             sfx.hover();
         }
     }
 
-    // AI move (random every 100ms)
-    if (now - aiLastMoveTime > 100) {
-        let dirs = [];
-        if (aiPos.x > 0) dirs.push({ dx: -1, dy: 0 });
-        if (aiPos.x < 29) dirs.push({ dx: 1, dy: 0 });
-        if (aiPos.y > 0) dirs.push({ dx: 0, dy: -1 });
-        if (aiPos.y < 19) dirs.push({ dx: 0, dy: 1 });
+    if (terrMode === 'pvp') {
+        // Player 2 move (debounced 80ms, using Arrow Keys)
+        if (now - aiLastMoveTime > 80) {
+            let movedP2 = false;
+            let nextAiX = aiPos.x;
+            let nextAiY = aiPos.y;
 
-        // Seek unowned territory if possible
-        let validDirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] === 0);
-        if (validDirs.length === 0) validDirs = dirs; // fallback
+            if (terrKeys['ArrowUp'] && aiPos.y > 0) { nextAiY--; movedP2 = true; }
+            else if (terrKeys['ArrowDown'] && aiPos.y < 19) { nextAiY++; movedP2 = true; }
+            else if (terrKeys['ArrowLeft'] && aiPos.x > 0) { nextAiX--; movedP2 = true; }
+            else if (terrKeys['ArrowRight'] && aiPos.x < 29) { nextAiX++; movedP2 = true; }
 
-        let move = validDirs[Math.floor(Math.random() * validDirs.length)];
-        aiPos.x += move.dx;
-        aiPos.y += move.dy;
-        grid[aiPos.x][aiPos.y] = 2;
-        aiLastMoveTime = now;
+            if (movedP2) {
+                let aiTargetState = grid[nextAiX][nextAiY];
+                if (aiTargetState === 4) {
+                    terrActive = false;
+                    document.getElementById('territory-overlay').classList.remove('hidden');
+                    document.getElementById('territory-msg').textContent = 'P2 TRAIL COLLISION! P1 WINS!';
+                    sfx.win();
+                    return;
+                } else if (aiTargetState === 3) {
+                    terrActive = false;
+                    document.getElementById('territory-overlay').classList.remove('hidden');
+                    document.getElementById('territory-msg').textContent = 'P2 CUT P1 TRAIL! P2 WINS!';
+                    sfx.error();
+                    return;
+                }
+
+                aiPos.x = nextAiX;
+                aiPos.y = nextAiY;
+
+                if (aiTargetState === 2) {
+                    if (aiTrail.length > 2) {
+                        fillTerritory(2, 4, aiTrail);
+                    } else if (aiTrail.length > 0) {
+                        for (let t of aiTrail) grid[t.x][t.y] = 0;
+                        aiTrail = [];
+                    }
+                } else if (aiTargetState === 0 || aiTargetState === 1) {
+                    grid[aiPos.x][aiPos.y] = 4;
+                    aiTrail.push({ x: aiPos.x, y: aiPos.y });
+                }
+
+                aiLastMoveTime = now;
+                sfx.hover();
+            }
+        }
+    } else {
+        // AI move (faster, smarter every 75ms)
+        if (now - aiLastMoveTime > 75) {
+            let dirs = [];
+            if (aiPos.x > 0) dirs.push({ dx: -1, dy: 0 });
+            if (aiPos.x < 29) dirs.push({ dx: 1, dy: 0 });
+            if (aiPos.y > 0) dirs.push({ dx: 0, dy: -1 });
+            if (aiPos.y < 19) dirs.push({ dx: 0, dy: 1 });
+
+            // Filter out immediate suicide
+            dirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] !== 4);
+            if (dirs.length === 0) dirs = [{ dx: 0, dy: 0 }]; // stuck
+
+            let validDirs = dirs;
+
+            // Smarter behavior: Look for player trail nearby to attack
+            let attackDirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] === 3);
+
+            let closingDirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] === 2);
+            let closingChance = aiTrail.length > 15 ? 0.9 : (aiTrail.length > 5 ? 0.7 : 0.2);
+
+            if (attackDirs.length > 0 && Math.random() < 0.8) {
+                // Highly likely to attack player trail if adjacent
+                validDirs = attackDirs;
+            } else if (aiTrail.length > 2 && closingDirs.length > 0 && Math.random() < closingChance) {
+                // Close loop based on trail length
+                validDirs = closingDirs;
+            } else {
+                // Continue exploring empty or player territory
+                let emptyDirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] === 0 || grid[aiPos.x + d.dx][aiPos.y + d.dy] === 1);
+                if (emptyDirs.length > 0) {
+                    validDirs = emptyDirs;
+                }
+            }
+
+            let move = validDirs[Math.floor(Math.random() * validDirs.length)];
+            let nextAiX = aiPos.x + move.dx;
+            let nextAiY = aiPos.y + move.dy;
+            let aiTargetState = grid[nextAiX][nextAiY];
+
+            if (aiTargetState === 4) {
+                terrActive = false;
+                document.getElementById('territory-overlay').classList.remove('hidden');
+                document.getElementById('territory-msg').textContent = 'AI TRAIL COLLISION! YOU WIN!';
+                sfx.win();
+                return;
+            } else if (aiTargetState === 3) {
+                terrActive = false;
+                document.getElementById('territory-overlay').classList.remove('hidden');
+                document.getElementById('territory-msg').textContent = 'AI CUT TRAIL!';
+                sfx.error();
+                return;
+            }
+
+            aiPos.x = nextAiX;
+            aiPos.y = nextAiY;
+
+            if (aiTargetState === 2) {
+                if (aiTrail.length > 2) {
+                    fillTerritory(2, 4, aiTrail);
+                } else if (aiTrail.length > 0) {
+                    for (let t of aiTrail) grid[t.x][t.y] = 0;
+                    aiTrail = [];
+                }
+            } else if (aiTargetState === 0 || aiTargetState === 1) {
+                grid[aiPos.x][aiPos.y] = 4;
+                aiTrail.push({ x: aiPos.x, y: aiPos.y });
+            }
+
+            aiLastMoveTime = now;
+        }
     }
 
     let scores = updateTerritoryScore();
@@ -1051,10 +1422,10 @@ function updateTerritory() {
         terrActive = false;
         document.getElementById('territory-overlay').classList.remove('hidden');
         if (scores.p > scores.a) {
-            document.getElementById('territory-msg').textContent = 'YOU WIN!';
+            document.getElementById('territory-msg').textContent = terrMode === 'pve' ? 'YOU WIN!' : 'P1 WINS!';
             sfx.win();
         } else {
-            document.getElementById('territory-msg').textContent = 'AI WINS!';
+            document.getElementById('territory-msg').textContent = terrMode === 'pve' ? 'AI WINS!' : 'P2 WINS!';
             sfx.error();
         }
     }
@@ -1063,96 +1434,374 @@ function updateTerritory() {
     if (terrActive) terrAnimId = requestAnimationFrame(updateTerritory);
 }
 
-// ==========================================
-// GAME 6: REACTION DUEL
-// ==========================================
-let reactState = 'idle'; // idle, wait, ready
-let reactTimeout;
-let reactStartTime;
-let reactBest = Infinity;
+function fillTerritory(ownerId, trailId, trailArray) {
+    let visited = [];
+    for (let i = 0; i < 30; i++) {
+        visited[i] = [];
+        for (let j = 0; j < 20; j++) visited[i][j] = false;
+    }
 
-function initReactionGame() {
-    reactState = 'idle';
-    clearTimeout(reactTimeout);
-    document.getElementById('reaction-flash-text').textContent = 'Click/Press Space to Start';
-    document.getElementById('reaction-flash-text').className = 'number-flash';
-    document.getElementById('reaction-display').classList.remove('glow-green-border', 'glow-red-border');
-}
+    let stack = [];
+    for (let i = 0; i < 30; i++) {
+        stack.push({ x: i, y: 0 });
+        stack.push({ x: i, y: 19 });
+    }
+    for (let j = 1; j < 19; j++) {
+        stack.push({ x: 0, y: j });
+        stack.push({ x: 29, y: j });
+    }
 
-const btnReactionReset = document.getElementById('btn-reaction-reset');
-if (btnReactionReset) {
-    btnReactionReset.addEventListener('click', () => {
-        sfx.click();
-        reactBest = Infinity;
-        document.getElementById('reaction-best').textContent = `Best: -- ms`;
-        initReactionGame();
-    });
-}
+    while (stack.length > 0) {
+        let curr = stack.pop();
+        let cx = curr.x;
+        let cy = curr.y;
 
-function handleReactionAction() {
-    if (reactState === 'idle') {
-        sfx.click();
-        reactState = 'wait';
-        document.getElementById('reaction-flash-text').textContent = 'Wait for Green...';
-        document.getElementById('reaction-display').classList.remove('glow-green-border', 'glow-red-border');
-        document.getElementById('reaction-display').classList.add('glow-red-border');
+        if (cx < 0 || cx >= 30 || cy < 0 || cy >= 20) continue;
+        if (visited[cx][cy]) continue;
 
-        // Random time 2-5 seconds
-        let delay = 2000 + Math.random() * 3000;
+        if (grid[cx][cy] === ownerId || grid[cx][cy] === trailId) continue;
 
-        // 20% chance for a fake signal
-        if (Math.random() < 0.2) {
-            reactTimeout = setTimeout(() => {
-                document.getElementById('reaction-flash-text').textContent = 'FAKE!';
-                document.getElementById('reaction-flash-text').classList.add('flash-green'); // actually fake
-                sfx.hover();
-                setTimeout(() => {
-                    document.getElementById('reaction-flash-text').classList.remove('flash-green');
-                    document.getElementById('reaction-flash-text').textContent = 'Wait...';
-                }, 400);
+        visited[cx][cy] = true;
 
-                reactTimeout = setTimeout(triggerReady, delay - 1000);
-            }, delay - 1000);
-        } else {
-            reactTimeout = setTimeout(triggerReady, delay);
+        stack.push({ x: cx + 1, y: cy });
+        stack.push({ x: cx - 1, y: cy });
+        stack.push({ x: cx, y: cy + 1 });
+        stack.push({ x: cx, y: cy - 1 });
+    }
+
+    let filledCount = 0;
+    for (let i = 0; i < 30; i++) {
+        for (let j = 0; j < 20; j++) {
+            if (!visited[i][j] && grid[i][j] !== ownerId && grid[i][j] !== trailId) {
+                grid[i][j] = ownerId;
+                filledCount++;
+                if (Math.random() < 0.1 && typeof spawnBurst !== 'undefined') {
+                    let c = ownerId === 1 ? '0, 255, 204' : '255, 0, 60';
+                    spawnBurst(i * gridSize, j * gridSize, 5, c);
+                }
+            }
         }
-    } else if (reactState === 'wait') {
-        // Too early
-        clearTimeout(reactTimeout);
-        sfx.error();
-        applyErrorShake(document.getElementById('reaction-display'));
-        document.getElementById('reaction-flash-text').textContent = 'Too Early! Click to Try Again';
-        reactState = 'idle';
-    } else if (reactState === 'ready') {
-        // Reacted
-        let time = Date.now() - reactStartTime;
-        sfx.win();
-        document.getElementById('reaction-flash-text').textContent = `${time} ms`;
-        document.getElementById('reaction-current').textContent = `Current: ${time} ms`;
-        if (time < reactBest) {
-            reactBest = time;
-            document.getElementById('reaction-best').textContent = `Best: ${time} ms`;
-        }
-        reactState = 'idle';
+    }
+
+    for (let t of trailArray) {
+        grid[t.x][t.y] = ownerId;
+    }
+    trailArray.length = 0;
+
+    if (filledCount > 0) {
+        if (ownerId === 1) sfx.win(); else sfx.error();
+        updateTerritoryScore();
     }
 }
 
-function triggerReady() {
-    reactState = 'ready';
-    reactStartTime = Date.now();
-    sfx.flash();
-    document.getElementById('reaction-display').classList.remove('glow-red-border');
-    document.getElementById('reaction-display').classList.add('glow-green-border');
-    document.getElementById('reaction-flash-text').textContent = 'NOW!';
-    document.getElementById('reaction-flash-text').classList.add('flash-green');
-    setTimeout(() => {
-        document.getElementById('reaction-flash-text').classList.remove('flash-green');
-    }, 500);
+// ==========================================
+// GAME 7: PRESSURE CORE
+// ==========================================
+const coreCanvasArea = document.getElementById('core-canvas-area');
+const coreOverlay = document.getElementById('core-overlay');
+const coreMsg = document.getElementById('core-msg');
+const coreHealthBadge = document.getElementById('core-health');
+const coreScoreBadge = document.getElementById('core-score');
+const coreStreakBadge = document.getElementById('core-streak');
+const btnCoreStart = document.getElementById('btn-core-start');
+
+let coreActive = false;
+let coreHealth = 5;
+let coreScore = 0;
+let coreStreak = 0;
+let coreAlerts = [];
+let coreNextAlertId = 0;
+let coreAnimId;
+let coreLastTime = 0;
+let coreSpawnTimer = 0;
+let coreSpawnRate = 2000;
+let coreHeldInput = null;
+
+function initPressureGame() {
+    coreActive = false;
+    cancelAnimationFrame(coreAnimId);
+    coreHealth = 5;
+    coreScore = 0;
+    coreStreak = 0;
+    coreAlerts = [];
+    coreNextAlertId = 0;
+    coreSpawnRate = 2000;
+    coreHeldInput = null;
+
+    document.querySelectorAll('.core-alert').forEach(el => el.remove());
+
+    if (coreHealthBadge) coreHealthBadge.textContent = `Health: 5`;
+    if (coreScoreBadge) coreScoreBadge.textContent = `Score: 0`;
+    if (coreStreakBadge) coreStreakBadge.textContent = `Streak: 0`;
+
+    if (coreOverlay) {
+        coreOverlay.classList.remove('hidden');
+        coreMsg.textContent = 'System Ready';
+    }
+    if (btnCoreStart) btnCoreStart.classList.remove('hidden');
 }
 
-const reactionDisplay = document.getElementById('reaction-display');
-if (reactionDisplay) {
-    reactionDisplay.addEventListener('click', handleReactionAction);
+if (btnCoreStart) btnCoreStart.addEventListener('click', () => { sfx.click(); startCoreGame(); });
+
+function startCoreGame() {
+    initPressureGame();
+    if (coreOverlay) coreOverlay.classList.add('hidden');
+    if (btnCoreStart) btnCoreStart.classList.add('hidden');
+
+    coreActive = true;
+    coreLastTime = performance.now();
+    coreSpawnTimer = 0;
+    coreAnimId = requestAnimationFrame(updateCoreGame);
+}
+
+function spawnCoreAlert() {
+    const types = ['DIRECTION', 'CODE', 'IGNORE', 'HOLD', 'MULTI'];
+    const r = Math.random();
+    let type = 'DIRECTION';
+
+    if (coreScore < 5) {
+        type = r < 0.6 ? 'DIRECTION' : 'CODE';
+    } else {
+        if (r < 0.3) type = 'DIRECTION';
+        else if (r < 0.6) type = 'CODE';
+        else if (r < 0.75) type = 'IGNORE';
+        else if (r < 0.9) type = 'HOLD';
+        else type = 'MULTI';
+    }
+
+    const alert = {
+        id: coreNextAlertId++,
+        type: type,
+        payload: null,
+        maxTime: Math.max(1000, 3000 - (coreScore * 50)),
+        timeLeft: 0,
+        el: null,
+        x: 0,
+        y: 0,
+        completed: false
+    };
+    alert.timeLeft = alert.maxTime;
+
+    const dirs = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+    const keys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#'];
+
+    if (type === 'DIRECTION') {
+        alert.payload = dirs[Math.floor(Math.random() * dirs.length)];
+    } else if (type === 'CODE') {
+        alert.payload = '';
+        const len = Math.random() < 0.5 ? 1 : 2;
+        for (let i = 0; i < len; i++) alert.payload += keys[Math.floor(Math.random() * keys.length)];
+    } else if (type === 'IGNORE') {
+        alert.payload = 'DO NOT TOUCH';
+        alert.maxTime = 2000;
+        alert.timeLeft = 2000;
+    } else if (type === 'HOLD') {
+        alert.payload = dirs[Math.floor(Math.random() * dirs.length)];
+        alert.holdProgress = 0;
+    } else if (type === 'MULTI') {
+        alert.payload = {
+            dir: dirs[Math.floor(Math.random() * dirs.length)],
+            key: keys[Math.floor(Math.random() * keys.length)]
+        };
+        alert.step = 0;
+    }
+
+    const el = document.createElement('div');
+    el.className = `core-alert type-${type.toLowerCase()}`;
+
+    const bw = 600, bh = 400;
+    alert.x = Math.random() * (bw - 160) + 80;
+    alert.y = Math.random() * (bh - 100) + 50;
+    el.style.left = `${alert.x}px`;
+    el.style.top = `${alert.y}px`;
+
+    let icon = '', desc = '';
+    if (type === 'DIRECTION') {
+        if (alert.payload === 'UP') icon = '⬆️';
+        if (alert.payload === 'DOWN') icon = '⬇️';
+        if (alert.payload === 'LEFT') icon = '⬅️';
+        if (alert.payload === 'RIGHT') icon = '➡️';
+        desc = 'SWIPE';
+    } else if (type === 'CODE') {
+        icon = alert.payload;
+        desc = 'TYPE CODE';
+    } else if (type === 'IGNORE') {
+        icon = '⚠️';
+        desc = 'IGNORE';
+    } else if (type === 'HOLD') {
+        icon = `⏱️ ${alert.payload}`;
+        desc = 'HOLD';
+    } else if (type === 'MULTI') {
+        icon = `${alert.payload.dir} + ${alert.payload.key}`;
+        desc = 'SEQUENCE';
+    }
+
+    el.innerHTML = `
+        <div class="core-alert-icon">${icon}</div>
+        <div class="core-alert-desc">${desc}</div>
+        <div class="core-progress"><div class="core-progress-bar"></div></div>
+    `;
+
+    if (coreCanvasArea) coreCanvasArea.appendChild(el);
+    alert.el = el;
+    coreAlerts.push(alert);
+    sfx.hover();
+}
+
+function updateCoreGame(time) {
+    if (!coreActive) return;
+
+    const dt = time - coreLastTime;
+    coreLastTime = time;
+
+    coreSpawnTimer += dt;
+    if (coreSpawnTimer >= coreSpawnRate) {
+        coreSpawnTimer = 0;
+        spawnCoreAlert();
+        coreSpawnRate = Math.max(400, 2000 - (coreScore * 30));
+    }
+
+    if (coreHeldInput) {
+        for (let a of coreAlerts) {
+            if (a.type === 'HOLD' && a.payload === coreHeldInput) {
+                a.holdProgress += dt;
+                a.el.querySelector('.core-alert-icon').style.transform = `scale(${1 + a.holdProgress / 1000})`;
+                if (a.holdProgress >= 1000) {
+                    resolveCoreAlert(a.id, true);
+                }
+                break;
+            }
+        }
+    }
+
+    for (let i = coreAlerts.length - 1; i >= 0; i--) {
+        const a = coreAlerts[i];
+        a.timeLeft -= dt;
+
+        if (a.timeLeft <= 0) {
+            if (a.type === 'IGNORE') resolveCoreAlert(a.id, true);
+            else resolveCoreAlert(a.id, false);
+        } else {
+            const bar = a.el.querySelector('.core-progress-bar');
+            if (bar) bar.style.transform = `scaleX(${a.timeLeft / a.maxTime})`;
+
+            if (a.timeLeft < 500 && a.type !== 'IGNORE') {
+                a.el.style.transform = `translate(-50%, -50%) scale(${1 + Math.sin(time / 20) * 0.1})`;
+            }
+        }
+    }
+
+    if (coreActive) coreAnimId = requestAnimationFrame(updateCoreGame);
+}
+
+function resolveCoreAlert(id, success) {
+    const idx = coreAlerts.findIndex(a => a.id === id);
+    if (idx === -1) return;
+    const a = coreAlerts[idx];
+
+    if (success) {
+        sfx.success();
+        a.el.style.borderColor = 'var(--neon-green)';
+        a.el.style.boxShadow = '0 0 20px rgba(0, 255, 102, 0.8)';
+        coreScore++;
+        coreStreak++;
+        if (coreStreak > 0 && coreStreak % 10 === 0) { coreHealth = Math.min(5, coreHealth + 1); }
+    } else {
+        sfx.error();
+        applyErrorShake(coreCanvasArea);
+        a.el.style.borderColor = 'var(--neon-magenta)';
+        a.el.style.boxShadow = '0 0 20px rgba(255, 0, 60, 0.8)';
+        coreHealth--;
+        coreStreak = 0;
+    }
+
+    coreHealthBadge.textContent = `Health: ${coreHealth}`;
+    coreScoreBadge.textContent = `Score: ${coreScore}`;
+    coreStreakBadge.textContent = `Streak: ${coreStreak}`;
+
+    const el = a.el;
+    setTimeout(() => { if (el) el.remove(); }, 200);
+    coreAlerts.splice(idx, 1);
+
+    if (coreHealth <= 0) gameOverCore();
+}
+
+function gameOverCore() {
+    coreActive = false;
+    cancelAnimationFrame(coreAnimId);
+    sfx.error();
+    if (coreOverlay) {
+        coreOverlay.classList.remove('hidden');
+        coreMsg.innerHTML = `SYSTEM FAILURE<br><span style="font-size:1.5rem">Score: ${coreScore}</span>`;
+    }
+    if (btnCoreStart) {
+        btnCoreStart.textContent = "Reboot System";
+        btnCoreStart.classList.remove('hidden');
+    }
+}
+
+function handleCoreInput(input, isDown = true) {
+    if (!coreActive) return;
+
+    if (!isDown) {
+        if (coreHeldInput === input) coreHeldInput = null;
+        return;
+    }
+
+    coreHeldInput = input;
+    let matched = false;
+    const sortedAlerts = [...coreAlerts].sort((a, b) => a.timeLeft - b.timeLeft);
+
+    for (let a of sortedAlerts) {
+        if (a.type === 'DIRECTION' && input === a.payload) {
+            resolveCoreAlert(a.id, true);
+            matched = true;
+            break;
+        } else if (a.type === 'CODE') {
+            if (a.payload.startsWith(input)) {
+                a.payload = a.payload.substring(input.length);
+                if (a.payload.length === 0) resolveCoreAlert(a.id, true);
+                else {
+                    a.el.querySelector('.core-alert-icon').textContent = a.payload;
+                    sfx.click();
+                }
+                matched = true;
+                break;
+            }
+        } else if (a.type === 'MULTI') {
+            if (a.step === 0 && input === a.payload.dir) {
+                a.step = 1;
+                a.el.querySelector('.core-alert-icon').textContent = a.payload.key;
+                sfx.click();
+                matched = true;
+                break;
+            } else if (a.step === 1 && input === a.payload.key) {
+                resolveCoreAlert(a.id, true);
+                matched = true;
+                break;
+            }
+        } else if (a.type === 'HOLD') {
+            if (input === a.payload) {
+                matched = true;
+                break;
+            }
+        }
+    }
+
+    if (!matched) {
+        const ignoreAlert = sortedAlerts.find(a => a.type === 'IGNORE');
+        if (ignoreAlert) {
+            resolveCoreAlert(ignoreAlert.id, false);
+        } else {
+            coreHealth--;
+            coreStreak = 0;
+            coreHealthBadge.textContent = `Health: ${coreHealth}`;
+            coreStreakBadge.textContent = `Streak: 0`;
+            sfx.error();
+            applyErrorShake(coreCanvasArea);
+            if (coreHealth <= 0) gameOverCore();
+        }
+    }
 }
 
 // Global Event Listener for keydown/keyup for new games
@@ -1165,10 +1814,38 @@ window.addEventListener('keydown', (e) => {
         e.preventDefault(); // prevent scroll
         handleReactionAction();
     }
+
+    // Pressure Core keyboard mapping
+    if (document.body.getAttribute('data-theme') === 'pressure') {
+        let input = null;
+        if (e.key === 'ArrowUp') input = 'UP';
+        if (e.key === 'ArrowDown') input = 'DOWN';
+        if (e.key === 'ArrowLeft') input = 'LEFT';
+        if (e.key === 'ArrowRight') input = 'RIGHT';
+        if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#'].includes(e.key)) input = e.key;
+
+        if (input && !e.repeat) {
+            e.preventDefault();
+            handleCoreInput(input, true);
+        }
+    }
 });
 window.addEventListener('keyup', (e) => {
     breakerKeys[e.key] = false;
     terrKeys[e.key] = false;
+
+    if (document.body.getAttribute('data-theme') === 'pressure') {
+        let input = null;
+        if (e.key === 'ArrowUp') input = 'UP';
+        if (e.key === 'ArrowDown') input = 'DOWN';
+        if (e.key === 'ArrowLeft') input = 'LEFT';
+        if (e.key === 'ArrowRight') input = 'RIGHT';
+        if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#'].includes(e.key)) input = e.key;
+
+        if (input) {
+            handleCoreInput(input, false);
+        }
+    }
 });
 
 
@@ -1178,14 +1855,24 @@ function handleESPInput(key) {
 
     // 🔴 GLOBAL CONTROLS
     if (key === '#') {
+        if (theme === 'pressure') {
+            handleCoreInput('#', true);
+            setTimeout(() => handleCoreInput('#', false), 50);
+            return;
+        }
+
         // SUBMIT based on active game
         if (theme === 'memory') {
             const event = new KeyboardEvent('keydown', { key: 'Enter' });
             memInput.dispatchEvent(event);
         }
 
-        if (theme === 'guess') {
-            handleGuess();
+        if (theme === 'dodge') {
+            if (dodgeState === 'idle' || dodgeState === 'gameover') {
+                startDodgeGame();
+            } else {
+                initDodgeGame(); // Reset game
+            }
         }
 
         if (theme === 'sequence') {
@@ -1201,14 +1888,23 @@ function handleESPInput(key) {
 
     // OPTIONAL: CLEAR INPUT
     if (key === '*') {
-        const theme = document.body.getAttribute('data-theme');
+        if (theme === 'pressure') {
+            handleCoreInput('*', true);
+            setTimeout(() => handleCoreInput('*', false), 50);
+            return;
+        }
 
         if (theme === 'memory' && !memInput.disabled) {
             memInput.value = memInput.value.slice(0, -1);
         }
 
-        if (theme === 'guess') {
-            guessInput.value = guessInput.value.slice(0, -1);
+        if (theme === 'dodge') {
+            if (dodgeState === 'running') {
+                dodgeState = 'paused';
+            } else if (dodgeState === 'paused') {
+                dodgeState = 'running';
+                updateDodgeGame();
+            }
         }
 
         if (theme === 'sequence') {
@@ -1225,14 +1921,21 @@ function handleESPInput(key) {
         }
     }
 
-    // 🎯 GUESS GAME
-    if (theme === 'guess') {
-        guessInput.value += key;
+    // 🚀 NEON SKY DODGE
+    if (theme === 'dodge') {
+        if (key === '5') player.boost = 2.5;
+        if (key === '0') dodgeSpeedLevel = Math.max(0.5, dodgeSpeedLevel - 0.2);
     }
 
     // 🔢 SEQUENCE GAME
     if (theme === 'sequence') {
         seqInput.value += key;
+    }
+
+    // ☢️ PRESSURE CORE
+    if (theme === 'pressure') {
+        handleCoreInput(key, true);
+        setTimeout(() => handleCoreInput(key, false), 50);
     }
 
     // ESP mapping for Breaker & Territory
@@ -1263,23 +1966,55 @@ function handleESPInput(key) {
 function handleJoystick() {
     const theme = document.body.getAttribute('data-theme');
 
+    let jx = 0;
+    let jy = 0;
+
+    let dirX = joystick.x === -1 ? 'LEFT' : (joystick.x === 1 ? 'RIGHT' : null);
+    let dirY = joystick.y === -1 ? 'UP' : (joystick.y === 1 ? 'DOWN' : null);
+
+    if (dirX) {
+        let mapped = normalizeDirection(dirX);
+        if (mapped === 'LEFT') jx = -1;
+        if (mapped === 'RIGHT') jx = 1;
+        if (mapped === 'UP') jy = -1;
+        if (mapped === 'DOWN') jy = 1;
+    }
+    if (dirY) {
+        let mapped = normalizeDirection(dirY);
+        if (mapped === 'LEFT') jx = -1;
+        if (mapped === 'RIGHT') jx = 1;
+        if (mapped === 'UP') jy = -1;
+        if (mapped === 'DOWN') jy = 1;
+    }
+
     // 🎮 BUTTON → same as #
     if (joystick.btn === 0) {
-        handleESPInput('#');
+        if (!joystick.btnLastState) {
+            handleESPInput('#');
+            joystick.btnLastState = true;
+        }
+    } else {
+        joystick.btnLastState = false;
+    }
+
+    // 🎮 NEON SKY DODGE
+    if (theme === 'dodge') {
+        player.vx = jx * player.speed;
+        player.vy = jy * player.speed;
     }
 
     // 🎮 BALL BREAKER
     if (theme === 'breaker') {
-        if (joystick.x === -1) paddle.x -= 7;
-        if (joystick.x === 1) paddle.x += 7;
+        if (jx === -1) paddle.x -= 7;
+        if (jx === 1) paddle.x += 7;
     }
 
     // 🎮 TERRITORY
     if (theme === 'territory') {
-        if (joystick.x === -1) terrKeys['ArrowLeft'] = true;
-        if (joystick.x === 1) terrKeys['ArrowRight'] = true;
-        if (joystick.y === -1) terrKeys['ArrowUp'] = true;
-        if (joystick.y === 1) terrKeys['ArrowDown'] = true;
+        if (jx === -1) terrKeys['ArrowLeft'] = true;
+        if (jx === 1) terrKeys['ArrowRight'] = true;
+        if (jy === -1) terrKeys['ArrowUp'] = true;
+        if (jy === 1) terrKeys['ArrowDown'] = true;
 
         setTimeout(() => {
             terrKeys['ArrowLeft'] = false;
@@ -1289,8 +2024,22 @@ function handleJoystick() {
         }, 100);
     }
 
-    // 🎮 REACTION
-    if (theme === 'reaction' && joystick.btn === 0) {
-        handleReactionAction();
+    // 🎮 PRESSURE CORE
+    if (theme === 'pressure') {
+        let input = null;
+        if (jx === -1) input = 'LEFT';
+        else if (jx === 1) input = 'RIGHT';
+        else if (jy === -1) input = 'UP';
+        else if (jy === 1) input = 'DOWN';
+
+        if (input !== joystick.coreLastInput) {
+            if (joystick.coreLastInput) {
+                handleCoreInput(joystick.coreLastInput, false);
+            }
+            if (input) {
+                handleCoreInput(input, true);
+            }
+            joystick.coreLastInput = input;
+        }
     }
 }
