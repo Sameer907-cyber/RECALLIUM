@@ -21,6 +21,7 @@
     <div class="theme-bg" id="bg-breaker"></div>
     <div class="theme-bg" id="bg-territory"></div>
     <div class="theme-bg" id="bg-reaction"></div>
+    <div class="theme-bg" id="bg-pressure"></div>
     <canvas id="bg-canvas"></canvas>
     <div id="crt-overlay"></div>
 
@@ -46,11 +47,11 @@
                     <div class="card-glow"></div>
                 </div>
 
-                <div class="game-card fade-in-up delay-2" data-target="view-guess">
+                <div class="game-card fade-in-up delay-2" data-target="view-dodge">
                     <div class="card-inner">
-                        <div class="card-icon">🎯</div>
-                        <h2>Guess The Number</h2>
-                        <p>Find the secret number with advanced guidance.</p>
+                        <div class="card-icon">🚀</div>
+                        <h2>Neon Sky Dodge</h2>
+                        <p>High-speed spaceship dodge game with joystick controls.</p>
                     </div>
                     <div class="card-glow-alt"></div>
                 </div>
@@ -82,13 +83,13 @@
                     <div class="card-glow"></div>
                 </div>
 
-                <div class="game-card fade-in-up delay-3" data-target="view-reaction">
+                <div class="game-card fade-in-up delay-3" data-target="view-pressure">
                     <div class="card-inner">
-                        <div class="card-icon">⚡</div>
-                        <h2>Reaction Duel</h2>
-                        <p>Test your reflexes against random signals and fakes.</p>
+                        <div class="card-icon">☢️</div>
+                        <h2>Pressure Core</h2>
+                        <p>Manage chaotic, overlapping system alerts. React or fail!</p>
                     </div>
-                    <div class="card-glow-alt"></div>
+                    <div class="card-glow"></div>
                 </div>
             </div>
         </section>
@@ -142,32 +143,28 @@
         </section>
 
         <!-- ============================================== -->
-        <!-- VIEW: GUESS THE NUMBER                         -->
+        <!-- VIEW: NEON SKY DODGE                           -->
         <!-- ============================================== -->
-        <section id="view-guess" class="view">
+        <section id="view-dodge" class="view">
             <div class="top-bar glass-panel">
                 <button class="btn-back">⬅ Menu</button>
-                <h2 class="view-title">🎯 Guess The Number</h2>
+                <h2 class="view-title">🚀 Neon Sky Dodge</h2>
                 <div class="spacer"></div>
             </div>
 
             <div class="game-content">
-                <div class="guess-game-wrapper glass-panel padded">
+                <div class="dodge-game-wrapper glass-panel padded" style="max-width: 700px; width: 100%;">
                     <div class="game-hub-header">
-                        <span id="guess-attempts" class="pill pill-cyan">Attempts: 0</span>
+                        <span id="dodge-score" class="pill pill-cyan">Score: 0</span>
+                        <span id="dodge-lives" class="pill pill-magenta">Lives: 3</span>
+                        <span id="dodge-speed" class="pill pill-green">Speed: 1.0x</span>
                     </div>
 
-                    <div class="feedback-box display-box" id="guess-feedback">
-                        <span id="guess-feedback-text">I'm thinking of a number from 1 to 100...</span>
-                    </div>
-
-                    <div class="input-area row combo-input">
-                        <input type="number" id="guess-input" placeholder="Enter guess..." autocomplete="off">
-                        <button class="btn glow-btn btn-magenta" id="btn-guess-submit">Deploy</button>
-                    </div>
-
-                    <div class="controls row">
-                        <button class="btn-secondary outline" id="btn-guess-reset">Initialize New Target</button>
+                    <div class="display-box canvas-container" style="padding: 0; min-height: 400px; width: 100%; position: relative; border-radius: 15px; background: rgba(0,0,0,0.8); overflow: hidden;">
+                        <canvas id="dodge-canvas" width="600" height="400" style="width:100%; height:100%; display:block; border-radius: 15px;"></canvas>
+                        <div id="dodge-overlay" class="game-overlay">
+                            <h3 id="dodge-msg" style="text-align:center;">Press # to Start</h3>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -260,6 +257,7 @@
                         </div>
                     </div>
                     <div class="controls row">
+                        <button class="btn-secondary outline" id="btn-territory-mode">Mode: Vs AI</button>
                         <button class="btn-secondary outline" id="btn-territory-start">Start Rush</button>
                     </div>
                 </div>
@@ -267,29 +265,35 @@
         </section>
 
         <!-- ============================================== -->
-        <!-- VIEW: REACTION DUEL                            -->
+        <!-- VIEW: PRESSURE SYNC                            -->
         <!-- ============================================== -->
-        <section id="view-reaction" class="view">
+        <section id="view-pressure" class="view">
             <div class="top-bar glass-panel">
                 <button class="btn-back">⬅ Menu</button>
-                <h2 class="view-title">⚡ Reaction Duel</h2>
+                <h2 class="view-title">☢️ Pressure Core</h2>
                 <div class="spacer"></div>
             </div>
             <div class="game-content">
-                <div class="reaction-game-wrapper glass-panel padded">
+                <div class="pressure-game-wrapper glass-panel padded" style="max-width: 800px; width: 100%;">
                     <div class="game-hub-header">
-                        <span id="reaction-best" class="pill pill-cyan">Best: -- ms</span>
-                        <span id="reaction-current" class="pill pill-magenta">Current: -- ms</span>
+                        <span id="core-health" class="pill pill-magenta">Health: 5</span>
+                        <span id="core-score" class="pill pill-cyan">Score: 0</span>
+                        <span id="core-streak" class="pill pill-green">Streak: 0</span>
                     </div>
-                    <div class="display-box" id="reaction-display" style="cursor: pointer; user-select: none;">
-                        <span class="number-flash" id="reaction-flash-text">Click to Start</span>
+                    
+                    <div class="display-box canvas-container" id="core-canvas-area" style="padding: 0; min-height: 400px; width: 100%; position: relative; border-radius: 15px; background: rgba(0,0,0,0.6); overflow: hidden;">
+                        <div id="core-overlay" class="game-overlay">
+                            <h3 id="core-msg" style="text-align:center;">Press Start</h3>
+                        </div>
                     </div>
+                    
                     <div class="controls row">
-                        <button class="btn-secondary outline" id="btn-reaction-reset">Reset Stats</button>
+                        <button class="btn glow-btn btn-cyan" id="btn-core-start">Initialize System</button>
                     </div>
                 </div>
             </div>
         </section>
+
         <div id="cyber-hud">
             <div class="hud-left">
                 <div class="hud-box">SYSTEM ONLINE</div>
