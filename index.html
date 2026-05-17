@@ -8,12 +8,10 @@
     <meta name="description"
         content="A high-level, modern, professional multi-game web application focused on memory and logic.">
     <link rel="stylesheet" href="styles.css">
-    <!-- Modern Font -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
 </head>
 
 <body data-theme="home">
-    <!-- Background Elements -->
     <div id="plasma-bg"></div>
     <div class="theme-bg" id="bg-home"></div>
     <div class="theme-bg" id="bg-memory"></div>
@@ -22,21 +20,48 @@
     <div class="theme-bg" id="bg-territory"></div>
     <div class="theme-bg" id="bg-reaction"></div>
     <div class="theme-bg" id="bg-pressure"></div>
+    <div class="theme-bg" id="bg-neuro-menu"></div>
     <canvas id="bg-canvas"></canvas>
+    <canvas id="neuro-bg-canvas"></canvas>
     <div id="crt-overlay"></div>
 
-    <!-- UI Overlay container -->
     <div id="app-container">
 
         <!-- ============================================== -->
-        <!-- HOME VIEW (MAIN MENU)                          -->
+        <!-- HOME VIEW                                      -->
         <!-- ============================================== -->
         <section id="view-home" class="view active">
             <header class="main-header">
                 <h1 class="glow-text title-anim">⚡ Recallium</h1>
-                <p class="tagline fade-in-up">Train Think Triumph</p>
+                <p class="tagline fade-in-up">Choose Your Experience</p>
             </header>
 
+            <div class="zone-split-container fade-in-up delay-1">
+                <div class="zone-card arcade-zone-card" data-target="view-arcade-menu">
+                    <div class="zone-icon">🕹️</div>
+                    <h2>Arcade Zone</h2>
+                    <p>High-speed, neon-drenched competitive games.</p>
+                    <div class="zone-glow"></div>
+                </div>
+                <div class="zone-divider"></div>
+                <div class="zone-card neuro-zone-card" data-target="view-neuro-menu">
+                    <div class="zone-icon">🧘‍♂️</div>
+                    <h2>Neuro Zone</h2>
+                    <p>Therapeutic, calm cognitive training sessions.</p>
+                    <div class="neuro-zone-glow"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- ARCADE MENU                                    -->
+        <!-- ============================================== -->
+        <section id="view-arcade-menu" class="view">
+            <div class="top-bar glass-panel">
+                <button class="btn-back" data-target="view-home">⬅ Exit Zone</button>
+                <h2 class="view-title">🕹️ Arcade Zone</h2>
+                <div class="spacer"></div>
+            </div>
             <div class="card-container">
                 <div class="game-card fade-in-up delay-1" data-target="view-memory">
                     <div class="card-inner">
@@ -95,17 +120,346 @@
         </section>
 
         <!-- ============================================== -->
-        <!-- VIEW: MEMORY GAME                              -->
+        <!-- NEURO MENU                                     -->
+        <!-- ============================================== -->
+        <section id="view-neuro-menu" class="view">
+            <div class="top-bar neuro-panel neuro-glass">
+                <button class="btn-back neuro-text" data-target="view-home">⬅ Exit Zone</button>
+                <h2 class="view-title neuro-text">🧠 Neuro Zone</h2>
+                <div class="spacer"></div>
+            </div>
+
+            <div class="neuro-dashboard fade-in-up delay-1">
+                <div class="neuro-games">
+                    <div class="neuro-game-card neuro-panel neuro-glass fade-in-up delay-2"
+                        data-target="view-neuro-matrix">
+                        <div class="neuro-card-icon">🟦</div>
+                        <div class="neuro-card-info">
+                            <h3>Memory Matrix</h3>
+                            <p>Visual recall & working memory.</p>
+                        </div>
+                    </div>
+                    <div class="neuro-game-card neuro-panel neuro-glass fade-in-up delay-3"
+                        data-target="view-neuro-balance">
+                        <div class="neuro-card-icon">☯️</div>
+                        <div class="neuro-card-info">
+                            <h3>Zen Balance</h3>
+                            <p>Equilibrium & sustained focus.</p>
+                        </div>
+                    </div>
+                    <div class="neuro-game-card neuro-panel neuro-glass fade-in-up delay-4"
+                        data-target="view-neuro-pathway">
+                        <div class="neuro-card-icon">🧬</div>
+                        <div class="neuro-card-info">
+                            <h3>Neural Pathway</h3>
+                            <p>Spatial memory & sequences.</p>
+                        </div>
+                    </div>
+                    <div class="neuro-game-card neuro-panel neuro-glass fade-in-up delay-5"
+                        data-target="view-neuro-filter">
+                        <div class="neuro-card-icon">🎯</div>
+                        <div class="neuro-card-info">
+                            <h3>Focus Filter</h3>
+                            <p>Selective attention & inhibition.</p>
+                        </div>
+                    </div>
+                    <div class="neuro-game-card neuro-panel neuro-glass fade-in-up delay-2"
+                        data-target="view-neuro-direction">
+                        <div class="neuro-card-icon">🧭</div>
+                        <div class="neuro-card-info">
+                            <h3>Direction Recall</h3>
+                            <p>Repeat sequence of directions.</p>
+                        </div>
+                    </div>
+                    <div class="neuro-game-card neuro-panel neuro-glass fade-in-up delay-3"
+                        data-target="view-neuro-maze">
+                        <div class="neuro-card-icon">🛤️</div>
+                        <div class="neuro-card-info">
+                            <h3>Cognitive Maze</h3>
+                            <p>Memory-based maze navigation.</p>
+                        </div>
+                    </div>
+                    <div class="neuro-game-card neuro-panel neuro-glass fade-in-up delay-4"
+                        data-target="view-neuro-pattern">
+                        <div class="neuro-card-icon">🎵</div>
+                        <div class="neuro-card-info">
+                            <h3>Pattern Sync</h3>
+                            <p>Repeat rhythm & timing patterns.</p>
+                        </div>
+                    </div>
+                    <div class="neuro-game-card neuro-panel neuro-glass fade-in-up delay-5"
+                        data-target="view-neuro-color">
+                        <div class="neuro-card-icon">🎨</div>
+                        <div class="neuro-card-info">
+                            <h3>Color Association</h3>
+                            <p>Match color-symbol mapping.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- NEURO MEMORY MATRIX                            -->
+        <!-- ============================================== -->
+        <section id="view-neuro-matrix" class="view">
+            <div class="top-bar neuro-panel neuro-glass">
+                <button class="btn-back neuro-text" data-target="view-neuro-menu">⬅ Menu</button>
+                <h2 class="view-title neuro-text">🟦 Memory Matrix</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="neuro-game-wrapper neuro-panel neuro-glass padded" style="max-width: 600px; width: 100%;">
+                    <div class="game-hub-header">
+                        <span id="neuro-matrix-level" class="pill pill-neuro">Level: 1</span>
+                        <span id="neuro-matrix-streak" class="pill pill-neuro-alt">Streak: 0</span>
+                    </div>
+                    <div class="display-box canvas-container neuro-glass-box"
+                        style="padding: 2rem; min-height: 400px; width: 100%; position: relative;">
+                        <div id="neuro-matrix-grid" class="neuro-matrix-grid"></div>
+                        <div id="neuro-matrix-overlay" class="game-overlay neuro-overlay">
+                            <h3 id="neuro-matrix-msg" class="neuro-text" style="font-weight: 300;">Memorize the pattern.
+                            </h3>
+                        </div>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn glow-btn neuro-btn" id="btn-neuro-matrix-start">Start Matrix</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- NEURO ZEN BALANCE                              -->
+        <!-- ============================================== -->
+        <section id="view-neuro-balance" class="view">
+            <div class="top-bar neuro-panel neuro-glass">
+                <button class="btn-back neuro-text" data-target="view-neuro-menu">⬅ Menu</button>
+                <h2 class="view-title neuro-text">☯️ Zen Balance</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="neuro-game-wrapper neuro-panel neuro-glass padded" style="max-width: 600px; width: 100%;">
+                    <div class="game-hub-header">
+                        <span id="neuro-balance-time" class="pill pill-neuro">Focus Time: 0s</span>
+                        <span id="neuro-balance-best" class="pill pill-neuro-alt">Best: 0s</span>
+                    </div>
+                    <div class="display-box canvas-container neuro-glass-box"
+                        style="padding: 2rem; min-height: 400px; width: 100%; position: relative;">
+                        <canvas id="neuro-balance-canvas" width="600" height="400"
+                            style="width: 100%; height: 100%; border-radius: 12px;"></canvas>
+                        <div id="neuro-balance-overlay" class="game-overlay neuro-overlay">
+                            <h3 id="neuro-balance-msg" class="neuro-text" style="font-weight: 300;">Keep the orb
+                                centered using Joystick or Keypad (2,4,6,8).</h3>
+                        </div>
+                    </div>
+                    <div class="controls row" style="margin-top: 1rem;">
+                        <button class="btn glow-btn neuro-text" id="btn-neuro-balance-start"
+                            style="border: 1px solid rgba(255,255,255,0.2);">Find Balance</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- NEURO PATHWAY                                  -->
+        <!-- ============================================== -->
+        <section id="view-neuro-pathway" class="view">
+            <div class="top-bar neuro-panel neuro-glass">
+                <button class="btn-back neuro-text" data-target="view-neuro-menu">⬅ Menu</button>
+                <h2 class="view-title neuro-text">🧬 Neural Pathway</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="neuro-game-wrapper neuro-panel neuro-glass padded" style="max-width: 600px; width: 100%;">
+                    <div class="game-hub-header">
+                        <span id="neuro-pathway-level" class="pill pill-neuro">Nodes: 3</span>
+                    </div>
+                    <div class="display-box canvas-container neuro-glass-box"
+                        style="padding: 0; min-height: 400px; width: 100%; position: relative;">
+                        <canvas id="neuro-pathway-canvas" width="600" height="400"
+                            style="width:100%; height:100%; display:block; border-radius: 15px;"></canvas>
+                        <div id="neuro-pathway-overlay" class="game-overlay neuro-overlay">
+                            <h3 id="neuro-pathway-msg" class="neuro-text" style="font-weight: 300;">Recreate the path.
+                            </h3>
+                        </div>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn glow-btn neuro-btn" id="btn-neuro-pathway-start">Start Pathway</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- NEURO FOCUS FILTER                             -->
+        <!-- ============================================== -->
+        <section id="view-neuro-filter" class="view">
+            <div class="top-bar neuro-panel neuro-glass">
+                <button class="btn-back neuro-text" data-target="view-neuro-menu">⬅ Menu</button>
+                <h2 class="view-title neuro-text">🎯 Focus Filter</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="neuro-game-wrapper neuro-panel neuro-glass padded" style="max-width: 600px; width: 100%;">
+                    <div class="game-hub-header">
+                        <span id="neuro-filter-target" class="pill pill-neuro">Target: 🔵</span>
+                        <span id="neuro-filter-score" class="pill pill-neuro-alt">Score: 0</span>
+                    </div>
+                    <div class="display-box canvas-container neuro-glass-box"
+                        style="padding: 0; min-height: 400px; width: 100%; position: relative;">
+                        <canvas id="neuro-filter-canvas" width="600" height="400"
+                            style="width:100%; height:100%; display:block; border-radius: 15px;"></canvas>
+                        <div id="neuro-filter-overlay" class="game-overlay neuro-overlay">
+                            <h3 id="neuro-filter-msg" class="neuro-text" style="font-weight: 300;">Click only the
+                                target.</h3>
+                        </div>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn glow-btn neuro-btn" id="btn-neuro-filter-start">Start Filter</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- NEURO DIRECTION RECALL                         -->
+        <!-- ============================================== -->
+        <section id="view-neuro-direction" class="view">
+            <div class="top-bar neuro-panel neuro-glass">
+                <button class="btn-back neuro-text" data-target="view-neuro-menu">⬅ Menu</button>
+                <h2 class="view-title neuro-text">🧭 Direction Recall</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="neuro-game-wrapper neuro-panel neuro-glass padded" style="max-width: 600px; width: 100%;">
+                    <div class="game-hub-header">
+                        <span id="neuro-direction-level" class="pill pill-neuro">Level: 1</span>
+                    </div>
+                    <div class="display-box canvas-container neuro-glass-box"
+                        style="padding: 2rem; min-height: 300px; width: 100%; position: relative; display:flex; justify-content:center; align-items:center; flex-direction:column;">
+                        <div id="neuro-direction-display"
+                            style="font-size: 6rem; color: var(--neon-cyan); height: 120px; display:flex; align-items:center; justify-content:center; text-shadow: 0 0 20px var(--neon-cyan);">
+                            --</div>
+                        <div id="neuro-direction-overlay" class="game-overlay neuro-overlay">
+                            <h3 id="neuro-direction-msg" class="neuro-text" style="font-weight: 300;">Memorize the
+                                directions.</h3>
+                        </div>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn glow-btn neuro-btn" id="btn-neuro-direction-start">Start Sequence</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- NEURO COGNITIVE MAZE                           -->
+        <!-- ============================================== -->
+        <section id="view-neuro-maze" class="view">
+            <div class="top-bar neuro-panel neuro-glass">
+                <button class="btn-back neuro-text" data-target="view-neuro-menu">⬅ Menu</button>
+                <h2 class="view-title neuro-text">🛤️ Cognitive Maze</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="neuro-game-wrapper neuro-panel neuro-glass padded" style="max-width: 600px; width: 100%;">
+                    <div class="game-hub-header">
+                        <span id="neuro-maze-level" class="pill pill-neuro">Level: 1</span>
+                    </div>
+                    <div class="display-box canvas-container neuro-glass-box"
+                        style="padding: 0; min-height: 400px; width: 100%; position: relative;">
+                        <canvas id="neuro-maze-canvas" width="600" height="400"
+                            style="width:100%; height:100%; display:block; border-radius: 15px;"></canvas>
+                        <div id="neuro-maze-overlay" class="game-overlay neuro-overlay">
+                            <h3 id="neuro-maze-msg" class="neuro-text" style="font-weight: 300;">Memorize the path, then
+                                navigate.</h3>
+                        </div>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn glow-btn neuro-btn" id="btn-neuro-maze-start">Generate Maze</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- NEURO PATTERN SYNC                             -->
+        <!-- ============================================== -->
+        <section id="view-neuro-pattern" class="view">
+            <div class="top-bar neuro-panel neuro-glass">
+                <button class="btn-back neuro-text" data-target="view-neuro-menu">⬅ Menu</button>
+                <h2 class="view-title neuro-text">🎵 Pattern Sync</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="neuro-game-wrapper neuro-panel neuro-glass padded" style="max-width: 600px; width: 100%;">
+                    <div class="game-hub-header">
+                        <span id="neuro-pattern-score" class="pill pill-neuro">Score: 0</span>
+                    </div>
+                    <div class="display-box canvas-container neuro-glass-box"
+                        style="padding: 2rem; min-height: 300px; width: 100%; position: relative; display:flex; justify-content:center; align-items:center;">
+                        <div id="neuro-pattern-pad"
+                            style="width:150px; height:150px; border-radius:50%; border: 4px solid var(--neon-cyan); box-shadow: inset 0 0 20px var(--neon-cyan); transition: all 0.1s; cursor:pointer; display:flex; justify-content:center; align-items:center;">
+                            <span style="font-size:2rem; opacity:0.5;">TAP (#)</span>
+                        </div>
+                        <div id="neuro-pattern-overlay" class="game-overlay neuro-overlay">
+                            <h3 id="neuro-pattern-msg" class="neuro-text" style="font-weight: 300;">Listen & repeat the
+                                rhythm.</h3>
+                        </div>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn glow-btn neuro-btn" id="btn-neuro-pattern-start">Start Rhythm</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- NEURO COLOR ASSOCIATION                        -->
+        <!-- ============================================== -->
+        <section id="view-neuro-color" class="view">
+            <div class="top-bar neuro-panel neuro-glass">
+                <button class="btn-back neuro-text" data-target="view-neuro-menu">⬅ Menu</button>
+                <h2 class="view-title neuro-text">🎨 Color Association</h2>
+                <div class="spacer"></div>
+            </div>
+            <div class="game-content">
+                <div class="neuro-game-wrapper neuro-panel neuro-glass padded" style="max-width: 600px; width: 100%;">
+                    <div class="game-hub-header">
+                        <span id="neuro-color-score" class="pill pill-neuro">Score: 0</span>
+                        <span id="neuro-color-time" class="pill pill-neuro-alt">Time: 30s</span>
+                    </div>
+                    <div class="display-box canvas-container neuro-glass-box"
+                        style="padding: 1rem; min-height: 300px; width: 100%; position: relative; flex-direction:column; gap:1rem;">
+                        <div id="neuro-color-rule" style="font-size:1.5rem; color:var(--text-main);">Match text color or
+                            meaning?</div>
+                        <div id="neuro-color-target" style="font-size:4rem; font-weight:700;">RED</div>
+                        <div class="row" style="margin-top:1rem; gap:1rem;" id="neuro-color-options">
+                        </div>
+                        <div id="neuro-color-overlay" class="game-overlay neuro-overlay">
+                            <h3 id="neuro-color-msg" class="neuro-text" style="font-weight: 300;">Follow the changing
+                                rules.</h3>
+                        </div>
+                    </div>
+                    <div class="controls row">
+                        <button class="btn glow-btn neuro-btn" id="btn-neuro-color-start">Start Game</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- MEMORY GAME                                    -->
         <!-- ============================================== -->
         <section id="view-memory" class="view">
             <div class="top-bar glass-panel">
-                <button class="btn-back">⬅ Menu</button>
+                <button class="btn-back" data-target="view-arcade-menu">⬅ Menu</button>
                 <h2 class="view-title">🧠 Memory Game</h2>
                 <div class="spacer"></div>
             </div>
 
             <div class="game-content">
-                <!-- Mode Selection -->
                 <div id="memory-modes" class="sub-view active glass-panel padded">
                     <h3>Select Mode</h3>
                     <div class="mode-buttons">
@@ -118,7 +472,6 @@
                     </div>
                 </div>
 
-                <!-- Game Play Area -->
                 <div id="memory-play" class="sub-view glass-panel padded hidden">
                     <div class="game-hub-header">
                         <span id="memory-level" class="pill pill-cyan">Level 1</span>
@@ -143,11 +496,11 @@
         </section>
 
         <!-- ============================================== -->
-        <!-- VIEW: NEON SKY DODGE                           -->
+        <!-- NEON SKY DODGE                                 -->
         <!-- ============================================== -->
         <section id="view-dodge" class="view">
             <div class="top-bar glass-panel">
-                <button class="btn-back">⬅ Menu</button>
+                <button class="btn-back" data-target="view-arcade-menu">⬅ Menu</button>
                 <h2 class="view-title">🚀 Neon Sky Dodge</h2>
                 <div class="spacer"></div>
             </div>
@@ -160,8 +513,10 @@
                         <span id="dodge-speed" class="pill pill-green">Speed: 1.0x</span>
                     </div>
 
-                    <div class="display-box canvas-container" style="padding: 0; min-height: 400px; width: 100%; position: relative; border-radius: 15px; background: rgba(0,0,0,0.8); overflow: hidden;">
-                        <canvas id="dodge-canvas" width="600" height="400" style="width:100%; height:100%; display:block; border-radius: 15px;"></canvas>
+                    <div class="display-box canvas-container"
+                        style="padding: 0; min-height: 400px; width: 100%; position: relative; border-radius: 15px; background: rgba(0,0,0,0.8); overflow: hidden;">
+                        <canvas id="dodge-canvas" width="600" height="400"
+                            style="width:100%; height:100%; display:block; border-radius: 15px;"></canvas>
                         <div id="dodge-overlay" class="game-overlay">
                             <h3 id="dodge-msg" style="text-align:center;">Press # to Start</h3>
                         </div>
@@ -171,11 +526,11 @@
         </section>
 
         <!-- ============================================== -->
-        <!-- VIEW: SEQUENCE RECALL                          -->
+        <!-- SEQUENCE RECALL                                -->
         <!-- ============================================== -->
         <section id="view-sequence" class="view">
             <div class="top-bar glass-panel">
-                <button class="btn-back">⬅ Menu</button>
+                <button class="btn-back" data-target="view-arcade-menu">⬅ Menu</button>
                 <h2 class="view-title">🔢 Sequence Recall</h2>
                 <div class="spacer"></div>
             </div>
@@ -204,11 +559,11 @@
         </section>
 
         <!-- ============================================== -->
-        <!-- VIEW: BALL BREAKER                             -->
+        <!-- BALL BREAKER                                   -->
         <!-- ============================================== -->
         <section id="view-breaker" class="view">
             <div class="top-bar glass-panel">
-                <button class="btn-back">⬅ Menu</button>
+                <button class="btn-back" data-target="view-arcade-menu">⬅ Menu</button>
                 <h2 class="view-title">🧱 Ball Breaker</h2>
                 <div class="spacer"></div>
             </div>
@@ -234,11 +589,11 @@
         </section>
 
         <!-- ============================================== -->
-        <!-- VIEW: TERRITORY RUSH                           -->
+        <!-- TERRITORY RUSH                                 -->
         <!-- ============================================== -->
         <section id="view-territory" class="view">
             <div class="top-bar glass-panel">
-                <button class="btn-back">⬅ Menu</button>
+                <button class="btn-back" data-target="view-arcade-menu">⬅ Menu</button>
                 <h2 class="view-title">🗺️ Territory Rush</h2>
                 <div class="spacer"></div>
             </div>
@@ -265,11 +620,11 @@
         </section>
 
         <!-- ============================================== -->
-        <!-- VIEW: PRESSURE SYNC                            -->
+        <!--  PRESSURE SYNC                                 -->
         <!-- ============================================== -->
         <section id="view-pressure" class="view">
             <div class="top-bar glass-panel">
-                <button class="btn-back">⬅ Menu</button>
+                <button class="btn-back" data-target="view-arcade-menu">⬅ Menu</button>
                 <h2 class="view-title">☢️ Pressure Core</h2>
                 <div class="spacer"></div>
             </div>
@@ -280,13 +635,14 @@
                         <span id="core-score" class="pill pill-cyan">Score: 0</span>
                         <span id="core-streak" class="pill pill-green">Streak: 0</span>
                     </div>
-                    
-                    <div class="display-box canvas-container" id="core-canvas-area" style="padding: 0; min-height: 400px; width: 100%; position: relative; border-radius: 15px; background: rgba(0,0,0,0.6); overflow: hidden;">
+
+                    <div class="display-box canvas-container" id="core-canvas-area"
+                        style="padding: 0; min-height: 400px; width: 100%; position: relative; border-radius: 15px; background: rgba(0,0,0,0.6); overflow: hidden;">
                         <div id="core-overlay" class="game-overlay">
                             <h3 id="core-msg" style="text-align:center;">Press Start</h3>
                         </div>
                     </div>
-                    
+
                     <div class="controls row">
                         <button class="btn glow-btn btn-cyan" id="btn-core-start">Initialize System</button>
                     </div>
@@ -309,6 +665,7 @@
     </div>
 
     <div id="transition-glitch"></div>
+    <div id="transition-neuro-morph"></div>
     <canvas id="trail-canvas"></canvas>
     <script src="script.js"></script>
 </body>
