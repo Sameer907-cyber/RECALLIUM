@@ -1,55 +1,54 @@
-let joystick = {
-    x: 0,
-    y: 0,
-    btn: 1,
-    btnLastState: false,
-    coreLastInput: null
-};
+//-------------------------
+//ESP,Mechanical Keyboard Controls, Joystick Controls
+//-------------------------
 
-const ESP_IP = "10.54.228.140";
+// let joystick = {
+//     x: 0,
+//     y: 0,
+//     btn: 1,
+//     btnLastState: false,
+//     coreLastInput: null
+// };
 
-const socket = new WebSocket(`ws://${ESP_IP}:81/`);
+// const ESP_IP = "10.137.98.140";
 
-socket.onopen = () => {
-    console.log("Connected to ESP 🎮");
-};
+// const socket = new WebSocket(`ws://${ESP_IP}:81/`);
 
-function normalizeDirection(dir) {
-    const map = {
-        "UP": "LEFT",
-        "DOWN": "RIGHT",
-        "LEFT": "DOWN",
-        "RIGHT": "UP"
-    };
-    return map[dir] || dir;
-}
+// socket.onopen = () => {
+//     console.log("Connected to ESP 🎮");
+// };
 
-socket.onmessage = (event) => {
-    const data = event.data.trim();
+// function normalizeDirection(dir) {
+//     // Identity mapping based on user request: "up joystick should move up"
+//     return dir;
+// }
 
-    // If joystick format → "dx,dy,btn"
-    if (data.includes(",")) {
-        const [dx, dy, btn] = data.split(",");
+// socket.onmessage = (event) => {
+//     const data = event.data.trim();
 
-        joystick.x = Number(dx);
-        joystick.y = Number(dy);
-        joystick.btn = Number(btn);
+//     // If joystick format → "dx,dy,btn"
+//     if (data.includes(",")) {
+//         const [dx, dy, btn] = data.split(",");
 
-        handleJoystick();
-    } else {
-        let key = normalizeDirection(data);
-        console.log("RAW:", data, "MAPPED:", key);
-        handleESPInput(key);
-    }
-};
+//         joystick.x = Number(dx);
+//         joystick.y = Number(dy);
+//         joystick.btn = Number(btn);
 
-let lastInputTime = 0;
-const INPUT_DELAY = 80; // ms
+//         handleJoystick();
+//     } else {
+//         let key = normalizeDirection(data);
+//         console.log("RAW:", data, "MAPPED:", key);
+//         handleESPInput(key);
+//     }
+// };
+
+// let lastInputTime = 0;
+// const INPUT_DELAY = 80; 
 
 
-// ==========================================
+
 // AUDIO SYNTHESIS & SOUND EFFECTS
-// ==========================================
+
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx;
 
@@ -81,13 +80,16 @@ const sfx = {
     success: () => { playTone(400, 'square', 0.1, 0.05); setTimeout(() => playTone(600, 'square', 0.2, 0.05), 100); if (typeof spawnBurst !== 'undefined') spawnBurst(window.innerWidth / 2, window.innerHeight / 2, 50, '0, 255, 102'); },
     error: () => { playTone(150, 'sawtooth', 0.3, 0.1); if (typeof spawnBurst !== 'undefined') spawnBurst(window.innerWidth / 2, window.innerHeight / 2, 30, '255, 0, 60'); },
     flash: () => playTone(800, 'sine', 0.1, 0.05),
-    win: () => { playTone(400, 'square', 0.1); setTimeout(() => playTone(500, 'square', 0.1), 100); setTimeout(() => playTone(600, 'square', 0.3), 200); if (typeof spawnBurst !== 'undefined') spawnBurst(window.innerWidth / 2, window.innerHeight / 2, 150, '0, 255, 102'); }
+    win: () => { playTone(400, 'square', 0.1); setTimeout(() => playTone(500, 'square', 0.1), 100); setTimeout(() => playTone(600, 'square', 0.3), 200); if (typeof spawnBurst !== 'undefined') spawnBurst(window.innerWidth / 2, window.innerHeight / 2, 150, '0, 255, 102'); },
+    neuroHover: () => playTone(300, 'sine', 0.1, 0.03),
+    neuroClick: () => playTone(350, 'sine', 0.2, 0.05),
+    neuroSuccess: () => { playTone(300, 'sine', 0.4, 0.05); setTimeout(() => playTone(400, 'sine', 0.6, 0.05), 200); },
+    neuroError: () => { playTone(200, 'sine', 0.4, 0.05); setTimeout(() => playTone(180, 'sine', 0.4, 0.05), 200); }
 };
 
 
-// ==========================================
 // BACKGROUND PARTICLES CANVAS
-// ==========================================
+
 const canvas = document.getElementById('bg-canvas');
 const ctx = canvas.getContext('2d');
 let particles = [];
@@ -256,29 +258,74 @@ document.body.addEventListener('click', (e) => {
     spawnBurst(e.clientX, e.clientY, 15, '0, 240, 255');
 });
 
-// ==========================================
+
 // SPA NAVIGATION LOGIC
-// ==========================================
+
 const views = document.querySelectorAll('.view');
 const cards = document.querySelectorAll('.game-card');
 const backBtns = document.querySelectorAll('.btn-back');
 
 function navigateTo(targetId) {
+    if (!targetId || !document.getElementById(targetId)) return;
     if (document.getElementById(targetId).classList.contains('active')) return;
-    sfx.click();
 
-    const glitch = document.getElementById('transition-glitch');
-    if (glitch) {
-        glitch.classList.remove('active');
-        void glitch.offsetWidth; // trigger reflow
-        glitch.classList.add('active');
+    const isNeuro = targetId.includes('neuro');
+    const targetZone = targetId === 'view-home' ? 'arcade' : (isNeuro ? 'neuro' : 'arcade');
+    const currentZone = document.body.getAttribute('data-zone') || 'arcade';
+
+    if (isNeuro) {
+        playTone(300, 'sine', 0.5, 0.05);
+    } else {
+        sfx.click();
+    }
+
+    let transitionDelay = 200;
+    if (currentZone !== targetZone && targetId !== 'view-home') {
+        if (targetZone === 'neuro') {
+            const neuroMorph = document.getElementById('transition-neuro-morph');
+            if (neuroMorph) {
+                neuroMorph.classList.remove('active');
+                void neuroMorph.offsetWidth;
+                neuroMorph.classList.add('active');
+            }
+            transitionDelay = 500;
+        } else {
+            const glitch = document.getElementById('transition-glitch');
+            if (glitch) {
+                glitch.classList.remove('active');
+                void glitch.offsetWidth;
+                glitch.classList.add('active');
+            }
+            transitionDelay = 200;
+        }
+    } else {
+        const glitch = document.getElementById('transition-glitch');
+        if (glitch) {
+            glitch.classList.remove('active');
+            void glitch.offsetWidth;
+            glitch.classList.add('active');
+        }
     }
 
     setTimeout(() => {
         views.forEach(view => view.classList.remove('active'));
         const themeStr = targetId.replace('view-', '');
         document.body.setAttribute('data-theme', themeStr);
-    }, 200);
+        document.body.setAttribute('data-zone', targetZone);
+
+        if (targetZone === 'neuro') {
+            startNeuroBg();
+        } else {
+            stopNeuroBg();
+        }
+
+        if (typeof neuroFilterState !== 'undefined') neuroFilterState = 'idle';
+        if (typeof neuroFilterSpawnTimer !== 'undefined') clearInterval(neuroFilterSpawnTimer);
+        if (typeof neuroPathwayState !== 'undefined') neuroPathwayState = 'idle';
+        if (typeof neuroBalanceState !== 'undefined') neuroBalanceState = 'idle';
+        if (typeof neuroMatrixState !== 'undefined') neuroMatrixState = 'idle';
+
+    }, transitionDelay);
 
     setTimeout(() => {
         document.getElementById(targetId).classList.add('active');
@@ -288,38 +335,50 @@ function navigateTo(targetId) {
         if (targetId === 'view-breaker') initBreakerGame();
         if (targetId === 'view-territory') initTerritoryGame();
         if (targetId === 'view-pressure') initPressureGame();
-    }, 350);
+
+        if (targetId === 'view-neuro-direction') initNeuroDirection();
+        if (targetId === 'view-neuro-maze') initNeuroMaze();
+        if (targetId === 'view-neuro-pattern') initNeuroPattern();
+        if (targetId === 'view-neuro-color') initNeuroColor();
+
+        if (targetId === 'view-neuro-matrix') initNeuroMatrix();
+        if (targetId === 'view-neuro-balance') initNeuroBalance();
+        if (targetId === 'view-neuro-pathway') initNeuroPathway();
+        if (targetId === 'view-neuro-filter') initNeuroFilter();
+    }, transitionDelay + 150);
 }
 
-cards.forEach(card => {
+const allClickableCards = document.querySelectorAll('.game-card, .zone-card, .neuro-game-card');
+allClickableCards.forEach(card => {
     card.addEventListener('mouseenter', sfx.hover);
     card.addEventListener('click', () => navigateTo(card.getAttribute('data-target')));
 
-    // Tilt and Magnetic physics
-    card.addEventListener('mousemove', (e) => {
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        card.style.setProperty('--mouse-x', `${x}px`);
-        card.style.setProperty('--mouse-y', `${y}px`);
+    if (card.classList.contains('game-card') || card.classList.contains('zone-card')) {
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            card.style.setProperty('--mouse-x', `${x}px`);
+            card.style.setProperty('--mouse-y', `${y}px`);
 
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        const tiltX = -(y - centerY) / 8;
-        const tiltY = (x - centerX) / 8;
-        card.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(1.05, 1.05, 1.05)`;
-    });
-    card.addEventListener('mouseleave', () => {
-        card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
-    });
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const tiltX = -(y - centerY) / 8;
+            const tiltY = (x - centerX) / 8;
+            card.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(1.05, 1.05, 1.05)`;
+        });
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+        });
+    }
 });
 
 backBtns.forEach(btn => {
     btn.addEventListener('mouseenter', sfx.hover);
-    btn.addEventListener('click', () => navigateTo('view-home'));
+    btn.addEventListener('click', () => navigateTo(btn.getAttribute('data-target') || 'view-home'));
 });
 
-// Setup global click interactions
+
 document.body.addEventListener('click', () => initAudio(), { once: true });
 document.querySelectorAll('button').forEach(b => {
     b.addEventListener('mouseenter', () => { if (b.id !== 'btn-memory-submit' && b.id !== 'btn-guess-submit' && b.id !== 'btn-sequence-submit') sfx.hover(); });
@@ -327,14 +386,13 @@ document.querySelectorAll('button').forEach(b => {
 
 function applyErrorShake(element) {
     element.classList.remove('shake');
-    void element.offsetWidth; // trigger reflow
+    void element.offsetWidth;
     element.classList.add('shake');
     sfx.error();
 }
 
-// ==========================================
 // GAME 1: MEMORY GAME
-// ==========================================
+
 const modesView = document.getElementById('memory-modes');
 const playView = document.getElementById('memory-play');
 const flashText = document.getElementById('memory-flash-text');
@@ -345,7 +403,7 @@ const memLevelBadge = document.getElementById('memory-level');
 const memTurnBadge = document.getElementById('memory-turn-indicator');
 const memDisplayBox = document.getElementById('memory-display');
 
-let memMode = ''; // 'pvc' or 'pvp'
+let memMode = '';
 let memSequence = [];
 let memPlayerTurn = 1;
 
@@ -368,7 +426,7 @@ function startMemorySetup() {
         playView.classList.remove('hidden');
         playView.classList.add('active');
 
-        // Setup initial UI
+
         memSequence = [];
         memPlayerTurn = 1;
         memInput.value = '';
@@ -460,20 +518,15 @@ memInput.addEventListener('keydown', (e) => {
                 memInput.disabled = true;
             }
         } else if (memMode === 'pvp') {
-            // PvP Logic Flow
-            // If it's turn N, the player must enter N digits matching the sequence, THEN add 1 more digit.
-            // Actually, a simpler flow: Type the sequence so far + 1 new number
             if (memSequence.length === 0) {
-                // First turn ever, player 1 enters 1 digit (or multiple, wait let's just accept what they wrote as string)
                 memSequence = val.split('');
                 sfx.success();
                 switchPvPTurn();
             } else {
-                // Must match sequence + 1 char
                 const expectedPrefix = memSequence.join('');
                 if (val.length === expectedPrefix.length + 1 && val.startsWith(expectedPrefix)) {
                     sfx.success();
-                    memSequence = val.split(''); // Update sequence
+                    memSequence = val.split('');
                     memDisplayBox.classList.add('glow-green-border');
                     setTimeout(() => memDisplayBox.classList.remove('glow-green-border'), 500);
                     switchPvPTurn();
@@ -482,7 +535,7 @@ memInput.addEventListener('keydown', (e) => {
                     memDisplayBox.classList.add('glow-red-border');
                     flashText.textContent = `P${memPlayerTurn} MISTAKE! P${memPlayerTurn === 1 ? 2 : 1} WINS!`;
                     flashText.style.color = 'var(--neon-magenta)';
-                    memInput.type = 'text'; // Show what they wrote
+                    memInput.type = 'text';
                     memInput.disabled = true;
                 }
             }
@@ -495,23 +548,16 @@ function switchPvPTurn() {
     memInput.disabled = true;
 
     let prevPlayer = memPlayerTurn;
-
-    // Switch player
     memPlayerTurn = memPlayerTurn === 1 ? 2 : 1;
     updatePvPTurnUI();
 
     let sequenceStr = memSequence.join('');
-
-    // ✅ STEP 1: SHOW previous player's sequence
     flashText.textContent = `Player ${prevPlayer} entered: ${sequenceStr}`;
     flashText.style.color = 'var(--neon-green)';
     sfx.success();
 
-    // ✅ STEP 2: WAIT 1.5 sec then HIDE
     setTimeout(() => {
         flashText.textContent = '*'.repeat(sequenceStr.length);
-
-        // ✅ STEP 3: PROMPT NEXT PLAYER
         setTimeout(() => {
             flashText.textContent = `Player ${memPlayerTurn}, repeat + add 1`;
             flashText.style.color = '#fff';
@@ -523,10 +569,7 @@ function switchPvPTurn() {
     }, 900);
 }
 
-
-// ==========================================
 // GAME 2: NEON SKY DODGE
-// ==========================================
 const dodgeCanvas = document.getElementById('dodge-canvas');
 const dodgeCtx = dodgeCanvas ? dodgeCanvas.getContext('2d') : null;
 const dodgeScoreBadge = document.getElementById('dodge-score');
@@ -651,13 +694,13 @@ function updateDodgeGame() {
     if (player.invincibility > 0) player.invincibility--;
 
     let kx = 0; let ky = 0;
-    if (dodgeKeys.ArrowLeft || dodgeKeys.a) kx = -1;
-    if (dodgeKeys.ArrowRight || dodgeKeys.d) kx = 1;
-    if (dodgeKeys.ArrowUp || dodgeKeys.w) ky = -1;
-    if (dodgeKeys.ArrowDown || dodgeKeys.s) ky = 1;
+    if (dodgeKeys.ArrowLeft || dodgeKeys.a || joystick.x < -0.3) kx = -1;
+    if (dodgeKeys.ArrowRight || dodgeKeys.d || joystick.x > 0.3) kx = 1;
+    if (dodgeKeys.ArrowUp || dodgeKeys.w || joystick.y < -0.3) ky = -1;
+    if (dodgeKeys.ArrowDown || dodgeKeys.s || joystick.y > 0.3) ky = 1;
 
-    let moveX = player.vx || (kx * player.speed);
-    let moveY = player.vy || (ky * player.speed);
+    let moveX = kx * player.speed;
+    let moveY = ky * player.speed;
 
     if (player.boost > 1) {
         moveX *= player.boost;
@@ -786,9 +829,9 @@ function updateDodgeGame() {
 }
 
 
-// ==========================================
+
 // GAME 3: SEQUENCE RECALL
-// ==========================================
+
 const seqStartBtn = document.getElementById('btn-sequence-start');
 const seqInputArea = document.getElementById('sequence-input-area');
 const seqInput = document.getElementById('sequence-input');
@@ -826,7 +869,6 @@ seqStartBtn.addEventListener('click', () => {
 });
 
 function startSequenceRound() {
-    // Generate sequence using characters A-D
     const chars = 'ABCD0123456789';
     seqCurrent = '';
     while (seqCurrent.length < seqLength) {
@@ -852,9 +894,9 @@ function startSequenceRound() {
             seqInput.value = '';
             seqInput.focus();
             startSeqTimer();
-        }, 3000); // give 3 seconds to look
+        }, 2000);
 
-    }, 3000);
+    }, 2000);
 }
 
 function startSeqTimer() {
@@ -866,7 +908,7 @@ function startSeqTimer() {
         if (time <= 0) {
             clearInterval(timerInterval);
             seqTimerBadge.textContent = `0.0s`;
-            verifySequence(true); // timed out
+            verifySequence(true);
         } else {
             seqTimerBadge.textContent = `${time.toFixed(1)}s`;
         }
@@ -900,9 +942,6 @@ function verifySequence(timedOut = false) {
 seqSubmitBtn.addEventListener('click', () => verifySequence(false));
 seqInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') verifySequence(false); });
 
-// ==========================================
-// BOOT SEQUENCE (TYPING MATRIX)
-// ==========================================
 const scrambleText = (el, originalText) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
     let iter = 0;
@@ -971,14 +1010,14 @@ function animateTrail() {
 animateTrail();
 
 
-// CLOCK
+// Clock
 setInterval(() => {
     const now = new Date();
     document.getElementById('hud-time').textContent =
         now.toLocaleTimeString();
 }, 1000);
 
-// FPS COUNTER
+// FPS Counter
 let lastFrame = performance.now();
 let fps = 0;
 
@@ -996,13 +1035,8 @@ updateFPS();
 
 
 
-
-
-
-
-// ==========================================
 // GAME 4: BALL BREAKER
-// ==========================================
+
 const breakerCanvas = document.getElementById('breaker-canvas');
 const bctx = breakerCanvas ? breakerCanvas.getContext('2d') : null;
 let breakerActive = false;
@@ -1061,15 +1095,12 @@ if (btnBreakerStart) {
 function drawBreaker() {
     if (!bctx) return;
     bctx.clearRect(0, 0, 600, 400);
-    // Draw paddle
     bctx.fillStyle = '#00f0ff';
     bctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
-    // Draw ball
     bctx.beginPath();
     bctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
     bctx.fillStyle = '#ff003c';
     bctx.fill();
-    // Draw bricks
     bricks.forEach(b => {
         if (b.active) {
             bctx.fillStyle = b.color;
@@ -1081,30 +1112,25 @@ function drawBreaker() {
 function updateBreaker() {
     if (!breakerActive) return;
 
-    // Paddle movement
     if (breakerKeys['ArrowLeft'] || breakerKeys['a']) paddle.x -= 7;
     if (breakerKeys['ArrowRight'] || breakerKeys['d']) paddle.x += 7;
-    if (joystick.x === -1) paddle.x -= 7;
-    if (joystick.x === 1) paddle.x += 7;
+    if (joystick.x < -0.3) paddle.x -= 7;
+    if (joystick.x > 0.3) paddle.x += 7;
     if (paddle.x < 0) paddle.x = 0;
     if (paddle.x + paddle.w > 600) paddle.x = 600 - paddle.w;
 
-    // Ball movement
     ball.x += ball.dx;
     ball.y += ball.dy;
 
-    // Wall collision
     if (ball.x - ball.r < 0 || ball.x + ball.r > 600) ball.dx *= -1;
     if (ball.y - ball.r < 0) ball.dy *= -1;
 
-    // Paddle collision
     if (ball.y + ball.r >= paddle.y && ball.x >= paddle.x && ball.x <= paddle.x + paddle.w) {
         ball.dy = -Math.abs(ball.dy);
         ball.dx = ((ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2)) * 5;
         sfx.hover();
     }
 
-    // Brick collision
     bricks.forEach(b => {
         if (b.active) {
             if (ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w && ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h) {
@@ -1117,7 +1143,6 @@ function updateBreaker() {
         }
     });
 
-    // Floor collision
     if (ball.y + ball.r > 400) {
         breakerLives--;
         document.getElementById('breaker-lives').textContent = `Lives: ${breakerLives}`;
@@ -1131,7 +1156,6 @@ function updateBreaker() {
         }
     }
 
-    // Win check
     if (bricks.every(b => !b.active)) {
         breakerActive = false;
         document.getElementById('breaker-overlay').classList.remove('hidden');
@@ -1143,102 +1167,125 @@ function updateBreaker() {
     if (breakerActive) breakerAnimId = requestAnimationFrame(updateBreaker);
 }
 
-// ==========================================
 // GAME 5: TERRITORY RUSH
-// ==========================================
 const terrCanvas = document.getElementById('territory-canvas');
 const terrCtx = terrCanvas ? terrCanvas.getContext('2d') : null;
-const gridSize = 20; // 30x20 grid
+const gridSize = 20;
+
 let terrActive = false;
 let terrAnimId;
 let grid = [];
+
 let playerPos = { x: 5, y: 10 };
 let aiPos = { x: 24, y: 10 };
+
 let terrKeys = {};
+let p2Input = { dx: 0, dy: 0 };
+
 let lastMoveTime = 0;
 let aiLastMoveTime = 0;
+
 let playerTrail = [];
 let aiTrail = [];
+
 let terrMode = 'pve';
 
 function initTerritoryGame() {
     terrActive = false;
     cancelAnimationFrame(terrAnimId);
+
     grid = [];
     for (let i = 0; i < 30; i++) {
         grid[i] = [];
         for (let j = 0; j < 20; j++) grid[i][j] = 0;
     }
+
     playerPos = { x: 5, y: 10 };
     aiPos = { x: 24, y: 10 };
+
     playerTrail = [];
     aiTrail = [];
+
+    p2Input = { dx: 0, dy: 0 };
+
     grid[playerPos.x][playerPos.y] = 1;
     grid[aiPos.x][aiPos.y] = 2;
+
     document.getElementById('territory-overlay').classList.remove('hidden');
     document.getElementById('territory-msg').textContent = 'Press Start';
+
     updateTerritoryScore();
     drawTerritory();
 }
 
 function updateTerritoryScore() {
     let p = 0, a = 0;
+
     for (let i = 0; i < 30; i++) {
         for (let j = 0; j < 20; j++) {
             if (grid[i][j] === 1) p++;
             if (grid[i][j] === 2) a++;
         }
     }
+
     document.getElementById('territory-score-player').textContent = `Player: ${p}`;
-    document.getElementById('territory-score-ai').textContent = terrMode === 'pve' ? `AI: ${a}` : `P2: ${a}`;
+    document.getElementById('territory-score-ai').textContent =
+        terrMode === 'pve' ? `AI: ${a}` : `P2: ${a}`;
+
     return { p, a };
 }
 
-const btnTerritoryStart = document.getElementById('btn-territory-start');
-if (btnTerritoryStart) {
-    btnTerritoryStart.addEventListener('click', () => {
-        sfx.click();
-        initTerritoryGame();
-        document.getElementById('territory-overlay').classList.add('hidden');
-        terrActive = true;
-        lastMoveTime = Date.now();
-        aiLastMoveTime = Date.now();
-        updateTerritory();
-    });
-}
-
 const btnTerritoryMode = document.getElementById('btn-territory-mode');
+const btnTerritoryStart = document.getElementById('btn-territory-start');
+
 if (btnTerritoryMode) {
     btnTerritoryMode.addEventListener('click', () => {
         sfx.click();
-        if (terrMode === 'pve') {
-            terrMode = 'pvp';
-            btnTerritoryMode.textContent = 'Mode: PvP';
-            document.getElementById('territory-score-ai').textContent = 'P2: 1';
-        } else {
-            terrMode = 'pve';
-            btnTerritoryMode.textContent = 'Mode: Vs AI';
-            document.getElementById('territory-score-ai').textContent = 'AI: 1';
-        }
-        initTerritoryGame();
+        terrMode = terrMode === 'pve' ? 'pvp' : 'pve';
+        btnTerritoryMode.textContent = `Mode: ${terrMode === 'pve' ? 'Vs AI' : 'PvP (Joystick)'}`;
+        updateTerritoryScore();
     });
+}
+
+if (btnTerritoryStart) {
+    btnTerritoryStart.addEventListener('click', () => {
+        sfx.click();
+        startTerritoryGame();
+    });
+}
+
+function startTerritoryGame() {
+    initTerritoryGame();
+    document.getElementById('territory-overlay').classList.add('hidden');
+    terrActive = true;
+    lastMoveTime = Date.now();
+    aiLastMoveTime = Date.now();
+    terrAnimId = requestAnimationFrame(updateTerritory);
 }
 
 function drawTerritory() {
     if (!terrCtx) return;
+
     terrCtx.clearRect(0, 0, 600, 400);
+
     for (let i = 0; i < 30; i++) {
         for (let j = 0; j < 20; j++) {
-            if (grid[i][j] === 1) { terrCtx.fillStyle = '#00f0ff'; terrCtx.shadowBlur = 5; terrCtx.shadowColor = '#00f0ff'; } // Player
-            else if (grid[i][j] === 2) { terrCtx.fillStyle = '#ff003c'; terrCtx.shadowBlur = 0; } // AI
-            else if (grid[i][j] === 3) { terrCtx.fillStyle = '#00ff66'; terrCtx.shadowBlur = 10; terrCtx.shadowColor = '#00ff66'; } // Trail
-            else if (grid[i][j] === 4) { terrCtx.fillStyle = '#ffaa00'; terrCtx.shadowBlur = 10; terrCtx.shadowColor = '#ffaa00'; } // AI Trail
-            else { terrCtx.fillStyle = 'rgba(255,255,255,0.05)'; terrCtx.shadowBlur = 0; }
+            if (grid[i][j] === 1) {
+                terrCtx.fillStyle = '#00f0ff';
+            } else if (grid[i][j] === 2) {
+                terrCtx.fillStyle = '#ff003c';
+            } else if (grid[i][j] === 3) {
+                terrCtx.fillStyle = '#00ff66';
+            } else if (grid[i][j] === 4) {
+                terrCtx.fillStyle = '#ffaa00';
+            } else {
+                terrCtx.fillStyle = 'rgba(255,255,255,0.05)';
+            }
+
             terrCtx.fillRect(i * gridSize, j * gridSize, gridSize - 1, gridSize - 1);
         }
     }
-    terrCtx.shadowBlur = 0;
-    // Highlight heads
+
     terrCtx.fillStyle = '#fff';
     terrCtx.fillRect(playerPos.x * gridSize + 4, playerPos.y * gridSize + 4, 12, 12);
     terrCtx.fillRect(aiPos.x * gridSize + 4, aiPos.y * gridSize + 4, 12, 12);
@@ -1249,16 +1296,17 @@ function updateTerritory() {
 
     let now = Date.now();
 
-    // Player move (debounced 80ms)
+    // PLAYER 1 
+
     if (now - lastMoveTime > 80) {
         let moved = false;
         let nextX = playerPos.x;
         let nextY = playerPos.y;
 
-        if ((terrKeys['w'] || terrKeys['2']) && playerPos.y > 0) { nextY--; moved = true; }
-        else if ((terrKeys['s'] || terrKeys['8']) && playerPos.y < 19) { nextY++; moved = true; }
-        else if ((terrKeys['a'] || terrKeys['4']) && playerPos.x > 0) { nextX--; moved = true; }
-        else if ((terrKeys['d'] || terrKeys['6']) && playerPos.x < 29) { nextX++; moved = true; }
+        if ((terrKeys['2'] || terrKeys['ArrowUp'] || (terrMode === 'pve' && joystick.y < -0.3)) && playerPos.y > 0) { nextY--; moved = true; }
+        else if ((terrKeys['8'] || terrKeys['ArrowDown'] || (terrMode === 'pve' && joystick.y > 0.3)) && playerPos.y < 19) { nextY++; moved = true; }
+        else if ((terrKeys['4'] || terrKeys['ArrowLeft'] || (terrMode === 'pve' && joystick.x < -0.3)) && playerPos.x > 0) { nextX--; moved = true; }
+        else if ((terrKeys['6'] || terrKeys['ArrowRight'] || (terrMode === 'pve' && joystick.x > 0.3)) && playerPos.x < 29) { nextX++; moved = true; }
 
         if (moved) {
             let targetState = grid[nextX][nextY];
@@ -1266,13 +1314,14 @@ function updateTerritory() {
             if (targetState === 3) {
                 terrActive = false;
                 document.getElementById('territory-overlay').classList.remove('hidden');
-                document.getElementById('territory-msg').textContent = terrMode === 'pve' ? 'TRAIL COLLISION!' : 'P1 TRAIL COLLISION! P2 WINS!';
+                document.getElementById('territory-msg').textContent = 'P1 TRAIL COLLISION! GAME OVER!';
                 sfx.error();
                 return;
-            } else if (targetState === 4) {
+            }
+            if (targetState === 4) {
                 terrActive = false;
                 document.getElementById('territory-overlay').classList.remove('hidden');
-                document.getElementById('territory-msg').textContent = terrMode === 'pve' ? 'YOU CUT AI TRAIL! YOU WIN!' : 'P1 CUT P2 TRAIL! P1 WINS!';
+                document.getElementById('territory-msg').textContent = 'YOU CUT AI TRAIL! YOU WIN!';
                 sfx.win();
                 return;
             }
@@ -1283,8 +1332,10 @@ function updateTerritory() {
             if (targetState === 1) {
                 if (playerTrail.length > 2) {
                     fillTerritory(1, 3, playerTrail);
+                    sfx.win();
+                    if (typeof spawnBurst !== 'undefined') spawnBurst(playerPos.x * gridSize + gridSize / 2, playerPos.y * gridSize + gridSize / 2, 50, '0, 255, 102');
                 } else if (playerTrail.length > 0) {
-                    for (let t of playerTrail) grid[t.x][t.y] = 0;
+                    for (let t of playerTrail) grid[t.x][t.y] = 1;
                     playerTrail = [];
                 }
             } else if (targetState === 0 || targetState === 2) {
@@ -1292,141 +1343,121 @@ function updateTerritory() {
                 playerTrail.push({ x: playerPos.x, y: playerPos.y });
             }
 
+            updateTerritoryScore();
             lastMoveTime = now;
-            sfx.hover();
         }
     }
 
-    if (terrMode === 'pvp') {
-        // Player 2 move (debounced 80ms, using Arrow Keys)
-        if (now - aiLastMoveTime > 80) {
-            let movedP2 = false;
-            let nextAiX = aiPos.x;
-            let nextAiY = aiPos.y;
+    // PLAYER 2 / AI
+    if (terrMode === 'pvp' && now - aiLastMoveTime > 80) {
+        let moved = false;
+        let nextX = aiPos.x;
+        let nextY = aiPos.y;
 
-            if (terrKeys['ArrowUp'] && aiPos.y > 0) { nextAiY--; movedP2 = true; }
-            else if (terrKeys['ArrowDown'] && aiPos.y < 19) { nextAiY++; movedP2 = true; }
-            else if (terrKeys['ArrowLeft'] && aiPos.x > 0) { nextAiX--; movedP2 = true; }
-            else if (terrKeys['ArrowRight'] && aiPos.x < 29) { nextAiX++; movedP2 = true; }
+        if (p2Input.dy === -1 && aiPos.y > 0) { nextY--; moved = true; }
+        else if (p2Input.dy === 1 && aiPos.y < 19) { nextY++; moved = true; }
+        else if (p2Input.dx === -1 && aiPos.x > 0) { nextX--; moved = true; }
+        else if (p2Input.dx === 1 && aiPos.x < 29) { nextX++; moved = true; }
 
-            if (movedP2) {
-                let aiTargetState = grid[nextAiX][nextAiY];
-                if (aiTargetState === 4) {
-                    terrActive = false;
-                    document.getElementById('territory-overlay').classList.remove('hidden');
-                    document.getElementById('territory-msg').textContent = 'P2 TRAIL COLLISION! P1 WINS!';
-                    sfx.win();
-                    return;
-                } else if (aiTargetState === 3) {
-                    terrActive = false;
-                    document.getElementById('territory-overlay').classList.remove('hidden');
-                    document.getElementById('territory-msg').textContent = 'P2 CUT P1 TRAIL! P2 WINS!';
-                    sfx.error();
-                    return;
-                }
+        if (moved) {
+            let state = grid[nextX][nextY];
 
-                aiPos.x = nextAiX;
-                aiPos.y = nextAiY;
-
-                if (aiTargetState === 2) {
-                    if (aiTrail.length > 2) {
-                        fillTerritory(2, 4, aiTrail);
-                    } else if (aiTrail.length > 0) {
-                        for (let t of aiTrail) grid[t.x][t.y] = 0;
-                        aiTrail = [];
-                    }
-                } else if (aiTargetState === 0 || aiTargetState === 1) {
-                    grid[aiPos.x][aiPos.y] = 4;
-                    aiTrail.push({ x: aiPos.x, y: aiPos.y });
-                }
-
-                aiLastMoveTime = now;
-                sfx.hover();
-            }
-        }
-    } else {
-        // AI move (faster, smarter every 75ms)
-        if (now - aiLastMoveTime > 75) {
-            let dirs = [];
-            if (aiPos.x > 0) dirs.push({ dx: -1, dy: 0 });
-            if (aiPos.x < 29) dirs.push({ dx: 1, dy: 0 });
-            if (aiPos.y > 0) dirs.push({ dx: 0, dy: -1 });
-            if (aiPos.y < 19) dirs.push({ dx: 0, dy: 1 });
-
-            // Filter out immediate suicide
-            dirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] !== 4);
-            if (dirs.length === 0) dirs = [{ dx: 0, dy: 0 }]; // stuck
-
-            let validDirs = dirs;
-
-            // Smarter behavior: Look for player trail nearby to attack
-            let attackDirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] === 3);
-
-            let closingDirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] === 2);
-            let closingChance = aiTrail.length > 15 ? 0.9 : (aiTrail.length > 5 ? 0.7 : 0.2);
-
-            if (attackDirs.length > 0 && Math.random() < 0.8) {
-                // Highly likely to attack player trail if adjacent
-                validDirs = attackDirs;
-            } else if (aiTrail.length > 2 && closingDirs.length > 0 && Math.random() < closingChance) {
-                // Close loop based on trail length
-                validDirs = closingDirs;
-            } else {
-                // Continue exploring empty or player territory
-                let emptyDirs = dirs.filter(d => grid[aiPos.x + d.dx][aiPos.y + d.dy] === 0 || grid[aiPos.x + d.dx][aiPos.y + d.dy] === 1);
-                if (emptyDirs.length > 0) {
-                    validDirs = emptyDirs;
-                }
-            }
-
-            let move = validDirs[Math.floor(Math.random() * validDirs.length)];
-            let nextAiX = aiPos.x + move.dx;
-            let nextAiY = aiPos.y + move.dy;
-            let aiTargetState = grid[nextAiX][nextAiY];
-
-            if (aiTargetState === 4) {
+            if (state === 4) {
                 terrActive = false;
                 document.getElementById('territory-overlay').classList.remove('hidden');
-                document.getElementById('territory-msg').textContent = 'AI TRAIL COLLISION! YOU WIN!';
+                document.getElementById('territory-msg').textContent = 'P2 TRAIL COLLISION! P1 WINS!';
                 sfx.win();
                 return;
-            } else if (aiTargetState === 3) {
+            }
+            if (state === 3) {
                 terrActive = false;
                 document.getElementById('territory-overlay').classList.remove('hidden');
-                document.getElementById('territory-msg').textContent = 'AI CUT TRAIL!';
+                document.getElementById('territory-msg').textContent = 'P2 CUT P1 TRAIL! P2 WINS!';
                 sfx.error();
                 return;
             }
 
-            aiPos.x = nextAiX;
-            aiPos.y = nextAiY;
+            aiPos.x = nextX;
+            aiPos.y = nextY;
 
-            if (aiTargetState === 2) {
+            if (state === 2) {
                 if (aiTrail.length > 2) {
                     fillTerritory(2, 4, aiTrail);
+                    sfx.win();
+                    if (typeof spawnBurst !== 'undefined') spawnBurst(aiPos.x * gridSize + gridSize / 2, aiPos.y * gridSize + gridSize / 2, 50, '255, 0, 60');
                 } else if (aiTrail.length > 0) {
-                    for (let t of aiTrail) grid[t.x][t.y] = 0;
+                    for (let t of aiTrail) grid[t.x][t.y] = 2;
                     aiTrail = [];
                 }
-            } else if (aiTargetState === 0 || aiTargetState === 1) {
+            } else if (state === 0 || state === 1) {
                 grid[aiPos.x][aiPos.y] = 4;
                 aiTrail.push({ x: aiPos.x, y: aiPos.y });
             }
 
+            updateTerritoryScore();
             aiLastMoveTime = now;
         }
-    }
+    } else if (terrMode === 'pve' && now - aiLastMoveTime > 90) {
+        let nextX = aiPos.x;
+        let nextY = aiPos.y;
 
-    let scores = updateTerritoryScore();
-    if (scores.p + scores.a === 600) {
-        terrActive = false;
-        document.getElementById('territory-overlay').classList.remove('hidden');
-        if (scores.p > scores.a) {
-            document.getElementById('territory-msg').textContent = terrMode === 'pve' ? 'YOU WIN!' : 'P1 WINS!';
-            sfx.win();
+        let dx = playerPos.x - aiPos.x;
+        let dy = playerPos.y - aiPos.y;
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+            if (dx > 0 && aiPos.x < 29) nextX++;
+            else if (dx < 0 && aiPos.x > 0) nextX--;
         } else {
-            document.getElementById('territory-msg').textContent = terrMode === 'pve' ? 'AI WINS!' : 'P2 WINS!';
-            sfx.error();
+            if (dy > 0 && aiPos.y < 19) nextY++;
+            else if (dy < 0 && aiPos.y > 0) nextY--;
+        }
+        if (grid[nextX][nextY] === 4) {
+            let dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+            for (let d of dirs) {
+                let nx = aiPos.x + d.x;
+                let ny = aiPos.y + d.y;
+                if (nx >= 0 && nx < 30 && ny >= 0 && ny < 20 && grid[nx][ny] !== 4) {
+                    nextX = nx; nextY = ny; break;
+                }
+            }
+        }
+
+        if (nextX !== aiPos.x || nextY !== aiPos.y) {
+            let state = grid[nextX][nextY];
+
+            if (state === 4) {
+                terrActive = false;
+                document.getElementById('territory-overlay').classList.remove('hidden');
+                document.getElementById('territory-msg').textContent = 'AI TRAIL COLLISION! P1 WINS!';
+                sfx.win();
+                return;
+            }
+            if (state === 3) {
+                terrActive = false;
+                document.getElementById('territory-overlay').classList.remove('hidden');
+                document.getElementById('territory-msg').textContent = 'AI CUT YOUR TRAIL! GAME OVER!';
+                sfx.error();
+                return;
+            }
+
+            aiPos.x = nextX;
+            aiPos.y = nextY;
+
+            if (state === 2) {
+                if (aiTrail.length > 2) {
+                    fillTerritory(2, 4, aiTrail);
+                    if (typeof spawnBurst !== 'undefined') spawnBurst(aiPos.x * gridSize + gridSize / 2, aiPos.y * gridSize + gridSize / 2, 50, '255, 0, 60');
+                } else if (aiTrail.length > 0) {
+                    for (let t of aiTrail) grid[t.x][t.y] = 2;
+                    aiTrail = [];
+                }
+            } else if (state === 0 || state === 1) {
+                grid[aiPos.x][aiPos.y] = 4;
+                aiTrail.push({ x: aiPos.x, y: aiPos.y });
+            }
+
+            updateTerritoryScore();
+            aiLastMoveTime = now;
         }
     }
 
@@ -1434,69 +1465,65 @@ function updateTerritory() {
     if (terrActive) terrAnimId = requestAnimationFrame(updateTerritory);
 }
 
-function fillTerritory(ownerId, trailId, trailArray) {
-    let visited = [];
-    for (let i = 0; i < 30; i++) {
-        visited[i] = [];
-        for (let j = 0; j < 20; j++) visited[i][j] = false;
+// JOYSTICK HANDLER
+function updateJoystick(x, y) {
+    if (Math.abs(x) < 0.3) x = 0;
+    if (Math.abs(y) < 0.3) y = 0;
+
+    if (x === 0 && y === 0) {
+        p2Input.dx = 0;
+        p2Input.dy = 0;
+        return;
     }
 
+    if (Math.abs(x) > Math.abs(y)) {
+        p2Input.dx = x > 0 ? 1 : -1;
+        p2Input.dy = 0;
+    } else {
+        p2Input.dy = y > 0 ? 1 : -1;
+        p2Input.dx = 0;
+    }
+}
+
+function fillTerritory(ownerId, trailId, trailArray) {
+    let visited = Array.from({ length: 30 }, () => Array(20).fill(false));
     let stack = [];
+
     for (let i = 0; i < 30; i++) {
         stack.push({ x: i, y: 0 });
         stack.push({ x: i, y: 19 });
     }
+
     for (let j = 1; j < 19; j++) {
         stack.push({ x: 0, y: j });
         stack.push({ x: 29, y: j });
     }
 
-    while (stack.length > 0) {
-        let curr = stack.pop();
-        let cx = curr.x;
-        let cy = curr.y;
+    while (stack.length) {
+        let { x, y } = stack.pop();
+        if (x < 0 || y < 0 || x >= 30 || y >= 20) continue;
+        if (visited[x][y]) continue;
+        if (grid[x][y] === ownerId || grid[x][y] === trailId) continue;
 
-        if (cx < 0 || cx >= 30 || cy < 0 || cy >= 20) continue;
-        if (visited[cx][cy]) continue;
+        visited[x][y] = true;
 
-        if (grid[cx][cy] === ownerId || grid[cx][cy] === trailId) continue;
-
-        visited[cx][cy] = true;
-
-        stack.push({ x: cx + 1, y: cy });
-        stack.push({ x: cx - 1, y: cy });
-        stack.push({ x: cx, y: cy + 1 });
-        stack.push({ x: cx, y: cy - 1 });
+        stack.push({ x: x + 1, y });
+        stack.push({ x: x - 1, y });
+        stack.push({ x: x, y: y + 1 });
+        stack.push({ x: x, y: y - 1 });
     }
 
-    let filledCount = 0;
     for (let i = 0; i < 30; i++) {
         for (let j = 0; j < 20; j++) {
-            if (!visited[i][j] && grid[i][j] !== ownerId && grid[i][j] !== trailId) {
-                grid[i][j] = ownerId;
-                filledCount++;
-                if (Math.random() < 0.1 && typeof spawnBurst !== 'undefined') {
-                    let c = ownerId === 1 ? '0, 255, 204' : '255, 0, 60';
-                    spawnBurst(i * gridSize, j * gridSize, 5, c);
-                }
-            }
+            if (!visited[i][j]) grid[i][j] = ownerId;
         }
     }
 
-    for (let t of trailArray) {
-        grid[t.x][t.y] = ownerId;
-    }
+    for (let t of trailArray) grid[t.x][t.y] = ownerId;
     trailArray.length = 0;
-
-    if (filledCount > 0) {
-        if (ownerId === 1) sfx.win(); else sfx.error();
-        updateTerritoryScore();
-    }
 }
 
-// ==========================================
 // GAME 7: PRESSURE CORE
-// ==========================================
 const coreCanvasArea = document.getElementById('core-canvas-area');
 const coreOverlay = document.getElementById('core-overlay');
 const coreMsg = document.getElementById('core-msg');
@@ -1663,13 +1690,21 @@ function updateCoreGame(time) {
 
     if (coreHeldInput) {
         for (let a of coreAlerts) {
-            if (a.type === 'HOLD' && a.payload === coreHeldInput) {
-                a.holdProgress += dt;
-                a.el.querySelector('.core-alert-icon').style.transform = `scale(${1 + a.holdProgress / 1000})`;
-                if (a.holdProgress >= 1000) {
-                    resolveCoreAlert(a.id, true);
+            if (a.type === 'HOLD') {
+                let holdMatch = (coreHeldInput === a.payload);
+                if (a.payload === 'UP' && coreHeldInput === '2') holdMatch = true;
+                if (a.payload === 'DOWN' && coreHeldInput === '8') holdMatch = true;
+                if (a.payload === 'LEFT' && coreHeldInput === '4') holdMatch = true;
+                if (a.payload === 'RIGHT' && coreHeldInput === '6') holdMatch = true;
+
+                if (holdMatch) {
+                    a.holdProgress += dt;
+                    a.el.querySelector('.core-alert-icon').style.transform = `scale(${1 + a.holdProgress / 1000})`;
+                    if (a.holdProgress >= 1000) {
+                        resolveCoreAlert(a.id, true);
+                    }
+                    break;
                 }
-                break;
             }
         }
     }
@@ -1753,10 +1788,18 @@ function handleCoreInput(input, isDown = true) {
     const sortedAlerts = [...coreAlerts].sort((a, b) => a.timeLeft - b.timeLeft);
 
     for (let a of sortedAlerts) {
-        if (a.type === 'DIRECTION' && input === a.payload) {
-            resolveCoreAlert(a.id, true);
-            matched = true;
-            break;
+        if (a.type === 'DIRECTION') {
+            let isMatch = (input === a.payload);
+            if (a.payload === 'UP' && input === '2') isMatch = true;
+            if (a.payload === 'DOWN' && input === '8') isMatch = true;
+            if (a.payload === 'LEFT' && input === '4') isMatch = true;
+            if (a.payload === 'RIGHT' && input === '6') isMatch = true;
+
+            if (isMatch) {
+                resolveCoreAlert(a.id, true);
+                matched = true;
+                break;
+            }
         } else if (a.type === 'CODE') {
             if (a.payload.startsWith(input)) {
                 a.payload = a.payload.substring(input.length);
@@ -1769,7 +1812,13 @@ function handleCoreInput(input, isDown = true) {
                 break;
             }
         } else if (a.type === 'MULTI') {
-            if (a.step === 0 && input === a.payload.dir) {
+            let dirMatch = (input === a.payload.dir);
+            if (a.payload.dir === 'UP' && input === '2') dirMatch = true;
+            if (a.payload.dir === 'DOWN' && input === '8') dirMatch = true;
+            if (a.payload.dir === 'LEFT' && input === '4') dirMatch = true;
+            if (a.payload.dir === 'RIGHT' && input === '6') dirMatch = true;
+
+            if (a.step === 0 && dirMatch) {
                 a.step = 1;
                 a.el.querySelector('.core-alert-icon').textContent = a.payload.key;
                 sfx.click();
@@ -1781,7 +1830,13 @@ function handleCoreInput(input, isDown = true) {
                 break;
             }
         } else if (a.type === 'HOLD') {
-            if (input === a.payload) {
+            let holdMatch = (input === a.payload);
+            if (a.payload === 'UP' && input === '2') holdMatch = true;
+            if (a.payload === 'DOWN' && input === '8') holdMatch = true;
+            if (a.payload === 'LEFT' && input === '4') holdMatch = true;
+            if (a.payload === 'RIGHT' && input === '6') holdMatch = true;
+
+            if (holdMatch) {
                 matched = true;
                 break;
             }
@@ -1804,19 +1859,270 @@ function handleCoreInput(input, isDown = true) {
     }
 }
 
-// Global Event Listener for keydown/keyup for new games
+// NEURO GAME: MEMORY FOCUS
+const neuroMemoryGrid = document.getElementById('neuro-memory-grid');
+const btnNeuroMemoryStart = document.getElementById('btn-neuro-memory-start');
+const neuroMemoryMovesBadge = document.getElementById('neuro-memory-moves');
+const neuroMemoryMatchesBadge = document.getElementById('neuro-memory-matches');
+
+const memoryEmojis = ['🌿', '💧', '☁️', '🌙', '✨', '🌸'];
+let memoryCards = [];
+let memoryFlipped = [];
+let memoryMatches = 0;
+let memoryMoves = 0;
+let memoryLock = false;
+
+function initNeuroMemory() {
+    if (!neuroMemoryGrid) return;
+    neuroMemoryGrid.innerHTML = '';
+    memoryFlipped = [];
+    memoryMatches = 0;
+    memoryMoves = 0;
+    memoryLock = false;
+    updateMemoryStats();
+
+    memoryCards = [...memoryEmojis, ...memoryEmojis];
+    memoryCards.sort(() => Math.random() - 0.5);
+
+    memoryCards.forEach((emoji, index) => {
+        const card = document.createElement('div');
+        card.className = 'neuro-card';
+        card.dataset.emoji = emoji;
+        card.dataset.index = index;
+
+        card.innerHTML = `
+            <div class="neuro-card-front"></div>
+            <div class="neuro-card-back">${emoji}</div>
+        `;
+
+        card.addEventListener('click', () => flipNeuroCard(card));
+        neuroMemoryGrid.appendChild(card);
+    });
+}
+
+function flipNeuroCard(card) {
+    if (memoryLock || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+    card.classList.add('flipped');
+    memoryFlipped.push(card);
+    sfx.click();
+
+    if (memoryFlipped.length === 2) {
+        memoryMoves++;
+        memoryLock = true;
+        updateMemoryStats();
+
+        const [card1, card2] = memoryFlipped;
+        if (card1.dataset.emoji === card2.dataset.emoji) {
+            setTimeout(() => {
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                memoryMatches++;
+                updateMemoryStats();
+                sfx.success();
+                memoryFlipped = [];
+                memoryLock = false;
+
+                if (memoryMatches === 6) {
+                    sfx.win();
+                    btnNeuroMemoryStart.textContent = "Restart Focus";
+                }
+            }, 500);
+        } else {
+            setTimeout(() => {
+                card1.classList.remove('flipped');
+                card2.classList.remove('flipped');
+                sfx.error();
+                memoryFlipped = [];
+                memoryLock = false;
+            }, 1000);
+        }
+    }
+}
+
+function updateMemoryStats() {
+    if (neuroMemoryMovesBadge) neuroMemoryMovesBadge.textContent = `Moves: ${memoryMoves}`;
+    if (neuroMemoryMatchesBadge) neuroMemoryMatchesBadge.textContent = `Matches: ${memoryMatches}/6`;
+}
+
+if (btnNeuroMemoryStart) {
+    btnNeuroMemoryStart.addEventListener('click', () => {
+        sfx.click();
+        initNeuroMemory();
+        btnNeuroMemoryStart.textContent = "Restart Focus";
+    });
+}
+
+// NEURO GAME: CALM FLOW
+const flowCanvas = document.getElementById('neuro-flow-canvas');
+const flowCtx = flowCanvas ? flowCanvas.getContext('2d') : null;
+const flowOverlay = document.getElementById('neuro-flow-overlay');
+const flowMsg = document.getElementById('neuro-flow-msg');
+const btnFlowStart = document.getElementById('btn-neuro-flow-start');
+const flowScoreBadge = document.getElementById('neuro-flow-score');
+
+let flowActive = false;
+let flowAnimId;
+let flowScore = 0;
+let flowBubbles = [];
+let flowLastTime = 0;
+let flowSpawnTimer = 0;
+let flowTargetSize = 50;
+let flowBreathePhase = 0;
+
+function initNeuroFlow() {
+    flowActive = false;
+    cancelAnimationFrame(flowAnimId);
+    flowScore = 0;
+    flowBubbles = [];
+    if (flowScoreBadge) flowScoreBadge.textContent = `Clarity: ${flowScore}`;
+
+    if (flowOverlay) {
+        flowOverlay.classList.remove('hidden');
+        flowMsg.innerHTML = "Breathe deeply.<br>Click to start.";
+    }
+    drawFlowFrame(0);
+}
+
+if (btnFlowStart) {
+    btnFlowStart.addEventListener('click', () => {
+        sfx.click();
+        if (flowOverlay) flowOverlay.classList.add('hidden');
+        flowScore = 0;
+        flowBubbles = [];
+        if (flowScoreBadge) flowScoreBadge.textContent = `Clarity: ${flowScore}`;
+        flowActive = true;
+        flowLastTime = performance.now();
+        flowAnimId = requestAnimationFrame(updateNeuroFlow);
+    });
+}
+
+function spawnFlowBubble() {
+    const radius = Math.random() * 20 + 15;
+    flowBubbles.push({
+        x: Math.random() * (600 - radius * 2) + radius,
+        y: 400 + radius,
+        radius: radius,
+        speed: Math.random() * 0.5 + 0.2,
+        drift: (Math.random() - 0.5) * 0.5,
+        opacity: 0,
+        popped: false,
+        popScale: 1
+    });
+}
+
+function updateNeuroFlow(time) {
+    if (!flowActive) return;
+
+    const dt = time - flowLastTime;
+    flowLastTime = time;
+
+    flowSpawnTimer += dt;
+    if (flowSpawnTimer > 1500) {
+        spawnFlowBubble();
+        flowSpawnTimer = 0;
+    }
+
+    flowBreathePhase += dt * 0.0005;
+
+    for (let i = flowBubbles.length - 1; i >= 0; i--) {
+        const b = flowBubbles[i];
+        if (b.popped) {
+            b.popScale += 0.05;
+            b.opacity -= 0.05;
+            if (b.opacity <= 0) flowBubbles.splice(i, 1);
+        } else {
+            b.y -= b.speed;
+            b.x += b.drift;
+            if (b.opacity < 0.6) b.opacity += 0.01;
+
+            if (b.y + b.radius < 0) {
+                flowBubbles.splice(i, 1);
+            }
+        }
+    }
+
+    drawFlowFrame(flowBreathePhase);
+
+    if (flowActive) flowAnimId = requestAnimationFrame(updateNeuroFlow);
+}
+
+function drawFlowFrame(phase) {
+    if (!flowCtx) return;
+    flowCtx.clearRect(0, 0, 600, 400);
+
+    const breatheScale = Math.sin(phase) * 20;
+    const centerGradient = flowCtx.createRadialGradient(300, 200, 0, 300, 200, 150 + breatheScale);
+    centerGradient.addColorStop(0, 'rgba(0, 240, 255, 0.05)');
+    centerGradient.addColorStop(1, 'transparent');
+
+    flowCtx.fillStyle = centerGradient;
+    flowCtx.fillRect(0, 0, 600, 400);
+
+    flowBubbles.forEach(b => {
+        flowCtx.beginPath();
+        flowCtx.arc(b.x, b.y, b.radius * (b.popped ? b.popScale : 1), 0, Math.PI * 2);
+
+        const grad = flowCtx.createRadialGradient(b.x - b.radius * 0.3, b.y - b.radius * 0.3, 0, b.x, b.y, b.radius);
+        if (b.popped) {
+            grad.addColorStop(0, `rgba(255, 255, 255, ${b.opacity})`);
+            grad.addColorStop(1, `rgba(0, 240, 255, 0)`);
+        } else {
+            grad.addColorStop(0, `rgba(255, 255, 255, ${b.opacity * 0.8})`);
+            grad.addColorStop(1, `rgba(168, 218, 220, ${b.opacity * 0.2})`);
+
+            flowCtx.strokeStyle = `rgba(255, 255, 255, ${b.opacity * 0.5})`;
+            flowCtx.lineWidth = 1;
+            flowCtx.stroke();
+        }
+
+        flowCtx.fillStyle = grad;
+        flowCtx.fill();
+    });
+}
+
+if (flowCanvas) {
+    flowCanvas.addEventListener('mousedown', (e) => {
+        if (!flowActive) return;
+        const rect = flowCanvas.getBoundingClientRect();
+        const scaleX = flowCanvas.width / rect.width;
+        const scaleY = flowCanvas.height / rect.height;
+
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+
+        let poppedAny = false;
+        for (let i = flowBubbles.length - 1; i >= 0; i--) {
+            const b = flowBubbles[i];
+            if (!b.popped) {
+                const dist = Math.hypot(b.x - x, b.y - y);
+                if (dist <= b.radius) {
+                    b.popped = true;
+                    poppedAny = true;
+                    flowScore++;
+                    if (flowScoreBadge) flowScoreBadge.textContent = `Clarity: ${flowScore}`;
+                    sfx.hover();
+                }
+            }
+        }
+        if (!poppedAny) {
+        }
+    });
+}
+
 window.addEventListener('keydown', (e) => {
     breakerKeys[e.key] = true;
     terrKeys[e.key] = true;
 
-    // Spacebar mapping for reaction
-    if (e.code === 'Space' && document.body.getAttribute('data-theme') === 'reaction') {
-        e.preventDefault(); // prevent scroll
+    const theme = document.body.getAttribute('data-theme');
+
+    if (e.code === 'Space' && theme === 'reaction') {
+        e.preventDefault();
         handleReactionAction();
     }
 
     // Pressure Core keyboard mapping
-    if (document.body.getAttribute('data-theme') === 'pressure') {
+    if (theme === 'pressure') {
         let input = null;
         if (e.key === 'ArrowUp') input = 'UP';
         if (e.key === 'ArrowDown') input = 'DOWN';
@@ -1829,12 +2135,26 @@ window.addEventListener('keydown', (e) => {
             handleCoreInput(input, true);
         }
     }
+
+    // Zen Balance keyboard mapping
+    if (theme === 'neuro-balance' && typeof neuroBalanceState !== 'undefined' && neuroBalanceState === 'playing') {
+        let handled = false;
+        if (e.key === 'ArrowLeft' || e.key === 'a') { balanceKeys.left = true; handled = true; }
+        if (e.key === 'ArrowRight' || e.key === 'd') { balanceKeys.right = true; handled = true; }
+        if (e.key === 'ArrowUp' || e.key === 'w') { balanceKeys.up = true; handled = true; }
+        if (e.key === 'ArrowDown' || e.key === 's') { balanceKeys.down = true; handled = true; }
+
+        if (handled) {
+            e.preventDefault();
+        }
+    }
 });
 window.addEventListener('keyup', (e) => {
     breakerKeys[e.key] = false;
     terrKeys[e.key] = false;
 
-    if (document.body.getAttribute('data-theme') === 'pressure') {
+    const theme = document.body.getAttribute('data-theme');
+    if (theme === 'pressure') {
         let input = null;
         if (e.key === 'ArrowUp') input = 'UP';
         if (e.key === 'ArrowDown') input = 'DOWN';
@@ -1846,6 +2166,13 @@ window.addEventListener('keyup', (e) => {
             handleCoreInput(input, false);
         }
     }
+
+    if (theme === 'neuro-balance') {
+        if (e.key === 'ArrowLeft' || e.key === 'a') balanceKeys.left = false;
+        if (e.key === 'ArrowRight' || e.key === 'd') balanceKeys.right = false;
+        if (e.key === 'ArrowUp' || e.key === 'w') balanceKeys.up = false;
+        if (e.key === 'ArrowDown' || e.key === 's') balanceKeys.down = false;
+    }
 });
 
 
@@ -1853,7 +2180,6 @@ function handleESPInput(key) {
 
     const theme = document.body.getAttribute('data-theme');
 
-    // 🔴 GLOBAL CONTROLS
     if (key === '#') {
         if (theme === 'pressure') {
             handleCoreInput('#', true);
@@ -1871,7 +2197,13 @@ function handleESPInput(key) {
             if (dodgeState === 'idle' || dodgeState === 'gameover') {
                 startDodgeGame();
             } else {
-                initDodgeGame(); // Reset game
+                initDodgeGame();
+            }
+        }
+
+        if (theme === 'territory') {
+            if (!terrActive) {
+                startTerritoryGame();
             }
         }
 
@@ -1883,10 +2215,8 @@ function handleESPInput(key) {
             handleReactionAction();
         }
 
-        return; // ❗ STOP further execution
+        return;
     }
-
-    // OPTIONAL: CLEAR INPUT
     if (key === '*') {
         if (theme === 'pressure') {
             handleCoreInput('*', true);
@@ -1914,25 +2244,35 @@ function handleESPInput(key) {
         return;
     }
 
-    // 🧠 MEMORY GAME
     if (theme === 'memory') {
-        if ((memMode === 'pvc' || memMode === 'pvp') && !memInput.disabled) {
+        if (/^\d$/.test(key) && (memMode === 'pvc' || memMode === 'pvp') && !memInput.disabled) {
             memInput.value += key;
         }
     }
 
-    // 🚀 NEON SKY DODGE
     if (theme === 'dodge') {
         if (key === '5') player.boost = 2.5;
         if (key === '0') dodgeSpeedLevel = Math.max(0.5, dodgeSpeedLevel - 0.2);
+
+        if (key === '4' || key === 'LEFT') dodgeKeys['ArrowLeft'] = true;
+        if (key === '6' || key === 'RIGHT') dodgeKeys['ArrowRight'] = true;
+        if (key === '2' || key === 'UP') dodgeKeys['ArrowUp'] = true;
+        if (key === '8' || key === 'DOWN') dodgeKeys['ArrowDown'] = true;
+
+        setTimeout(() => {
+            dodgeKeys['ArrowLeft'] = false;
+            dodgeKeys['ArrowRight'] = false;
+            dodgeKeys['ArrowUp'] = false;
+            dodgeKeys['ArrowDown'] = false;
+        }, 150);
     }
 
-    // 🔢 SEQUENCE GAME
     if (theme === 'sequence') {
-        seqInput.value += key;
+        if (/^\d$/.test(key)) {
+            seqInput.value += key;
+        }
     }
 
-    // ☢️ PRESSURE CORE
     if (theme === 'pressure') {
         handleCoreInput(key, true);
         setTimeout(() => handleCoreInput(key, false), 50);
@@ -1949,15 +2289,101 @@ function handleESPInput(key) {
     }
 
     if (theme === 'territory') {
-        if (key === '4') terrKeys['ArrowLeft'] = true;
-        if (key === '6') terrKeys['ArrowRight'] = true;
-        if (key === '2') terrKeys['ArrowUp'] = true;
-        if (key === '8') terrKeys['ArrowDown'] = true;
+        if (key === '4') terrKeys['4'] = true;
+        if (key === '6') terrKeys['6'] = true;
+        if (key === '2') terrKeys['2'] = true;
+        if (key === '8') terrKeys['8'] = true;
+
+        if (key === 'LEFT') terrKeys['ArrowLeft'] = true;
+        if (key === 'RIGHT') terrKeys['ArrowRight'] = true;
+        if (key === 'UP') terrKeys['ArrowUp'] = true;
+        if (key === 'DOWN') terrKeys['ArrowDown'] = true;
+
         setTimeout(() => {
-            terrKeys['ArrowLeft'] = false;
-            terrKeys['ArrowRight'] = false;
-            terrKeys['ArrowUp'] = false;
-            terrKeys['ArrowDown'] = false;
+            if (key === '4') terrKeys['4'] = false;
+            if (key === '6') terrKeys['6'] = false;
+            if (key === '2') terrKeys['2'] = false;
+            if (key === '8') terrKeys['8'] = false;
+
+            if (key === 'LEFT') terrKeys['ArrowLeft'] = false;
+            if (key === 'RIGHT') terrKeys['ArrowRight'] = false;
+            if (key === 'UP') terrKeys['ArrowUp'] = false;
+            if (key === 'DOWN') terrKeys['ArrowDown'] = false;
+        }, 150);
+    }
+
+    // 🧭 NEURO DIRECTION
+    if (theme === 'neuro-direction') {
+        if (key === 'UP' || key === '2') handleDirInput('⬆️');
+        if (key === 'DOWN' || key === '8') handleDirInput('⬇️');
+        if (key === 'LEFT' || key === '4') handleDirInput('⬅️');
+        if (key === 'RIGHT' || key === '6') handleDirInput('➡️');
+    }
+
+    // 🛤️ NEURO MAZE
+    if (theme === 'neuro-maze' && mazeActive) {
+        const eventMap = {
+            'UP': 'ArrowUp', '2': 'ArrowUp',
+            'DOWN': 'ArrowDown', '8': 'ArrowDown',
+            'LEFT': 'ArrowLeft', '4': 'ArrowLeft',
+            'RIGHT': 'ArrowRight', '6': 'ArrowRight'
+        };
+        if (eventMap[key]) {
+            const event = new KeyboardEvent('keydown', { key: eventMap[key] });
+            window.dispatchEvent(event);
+        }
+    }
+
+    // 🎵 NEURO PATTERN
+    if (theme === 'neuro-pattern' && patternActive) {
+        if (key === '#') {
+            handlePatternClick();
+        }
+    }
+
+    // 🖱️ VIRTUAL CURSOR (ESP Keypad)
+    const needsCursor = ['neuro-matrix', 'neuro-pathway', 'neuro-filter', 'neuro-color'].includes(theme);
+    if (needsCursor && window.virtualCursor) {
+        let vx = 0, vy = 0;
+        if (key === '4' || key === 'LEFT') vx = -30;
+        if (key === '6' || key === 'RIGHT') vx = 30;
+        if (key === '2' || key === 'UP') vy = -30;
+        if (key === '8' || key === 'DOWN') vy = 30;
+
+        if (vx !== 0 || vy !== 0) {
+            window.vcX += vx;
+            window.vcY += vy;
+            window.vcX = Math.max(0, Math.min(window.innerWidth, window.vcX));
+            window.vcY = Math.max(0, Math.min(window.innerHeight, window.vcY));
+            window.virtualCursor.style.transform = `translate(${window.vcX}px, ${window.vcY}px)`;
+        }
+
+        if (key === '#') {
+            const el = document.elementFromPoint(window.vcX, window.vcY);
+            if (el) {
+                window.virtualCursor.style.background = '#fff';
+                setTimeout(() => window.virtualCursor.style.background = 'rgba(168, 218, 220, 0.8)', 150);
+                const clickEvent = new MouseEvent('click', {
+                    view: window, bubbles: true, cancelable: true,
+                    clientX: window.vcX, clientY: window.vcY
+                });
+                el.dispatchEvent(clickEvent);
+            }
+        }
+    }
+
+    // Neuro balance for ESP Keypad
+    if (theme === 'neuro-balance' && typeof neuroBalanceState !== 'undefined' && neuroBalanceState === 'playing') {
+        if (key === '4' || key === 'LEFT') balanceKeys.left = true;
+        if (key === '6' || key === 'RIGHT') balanceKeys.right = true;
+        if (key === '2' || key === 'UP') balanceKeys.up = true;
+        if (key === '8' || key === 'DOWN') balanceKeys.down = true;
+
+        setTimeout(() => {
+            if (key === '4' || key === 'LEFT') balanceKeys.left = false;
+            if (key === '6' || key === 'RIGHT') balanceKeys.right = false;
+            if (key === '2' || key === 'UP') balanceKeys.up = false;
+            if (key === '8' || key === 'DOWN') balanceKeys.down = false;
         }, 150);
     }
 }
@@ -1969,25 +2395,12 @@ function handleJoystick() {
     let jx = 0;
     let jy = 0;
 
-    let dirX = joystick.x === -1 ? 'LEFT' : (joystick.x === 1 ? 'RIGHT' : null);
-    let dirY = joystick.y === -1 ? 'UP' : (joystick.y === 1 ? 'DOWN' : null);
+    if (joystick.x < -0.3) jx = -1;
+    else if (joystick.x > 0.3) jx = 1;
 
-    if (dirX) {
-        let mapped = normalizeDirection(dirX);
-        if (mapped === 'LEFT') jx = -1;
-        if (mapped === 'RIGHT') jx = 1;
-        if (mapped === 'UP') jy = -1;
-        if (mapped === 'DOWN') jy = 1;
-    }
-    if (dirY) {
-        let mapped = normalizeDirection(dirY);
-        if (mapped === 'LEFT') jx = -1;
-        if (mapped === 'RIGHT') jx = 1;
-        if (mapped === 'UP') jy = -1;
-        if (mapped === 'DOWN') jy = 1;
-    }
+    if (joystick.y < -0.3) jy = -1;
+    else if (joystick.y > 0.3) jy = 1;
 
-    // 🎮 BUTTON → same as #
     if (joystick.btn === 0) {
         if (!joystick.btnLastState) {
             handleESPInput('#');
@@ -1999,8 +2412,17 @@ function handleJoystick() {
 
     // 🎮 NEON SKY DODGE
     if (theme === 'dodge') {
-        player.vx = jx * player.speed;
-        player.vy = jy * player.speed;
+        if (jx === -1) dodgeKeys['ArrowLeft'] = true;
+        if (jx === 1) dodgeKeys['ArrowRight'] = true;
+        if (jy === -1) dodgeKeys['ArrowUp'] = true;
+        if (jy === 1) dodgeKeys['ArrowDown'] = true;
+
+        setTimeout(() => {
+            dodgeKeys['ArrowLeft'] = false;
+            dodgeKeys['ArrowRight'] = false;
+            dodgeKeys['ArrowUp'] = false;
+            dodgeKeys['ArrowDown'] = false;
+        }, 100);
     }
 
     // 🎮 BALL BREAKER
@@ -2011,17 +2433,9 @@ function handleJoystick() {
 
     // 🎮 TERRITORY
     if (theme === 'territory') {
-        if (jx === -1) terrKeys['ArrowLeft'] = true;
-        if (jx === 1) terrKeys['ArrowRight'] = true;
-        if (jy === -1) terrKeys['ArrowUp'] = true;
-        if (jy === 1) terrKeys['ArrowDown'] = true;
-
-        setTimeout(() => {
-            terrKeys['ArrowLeft'] = false;
-            terrKeys['ArrowRight'] = false;
-            terrKeys['ArrowUp'] = false;
-            terrKeys['ArrowDown'] = false;
-        }, 100);
+        if (typeof terrMode !== 'undefined' && terrMode === 'pvp') {
+            updateJoystick(joystick.x, joystick.y);
+        }
     }
 
     // 🎮 PRESSURE CORE
@@ -2040,6 +2454,1258 @@ function handleJoystick() {
                 handleCoreInput(input, true);
             }
             joystick.coreLastInput = input;
+        }
+    }
+
+    // 🧭 NEURO DIRECTION
+    if (theme === 'neuro-direction') {
+        let input = null;
+        if (jx === -1) input = '⬅️';
+        else if (jx === 1) input = '➡️';
+        else if (jy === -1) input = '⬆️';
+        else if (jy === 1) input = '⬇️';
+
+        if (input && input !== joystick.dirLastInput) {
+            handleDirInput(input);
+        }
+        joystick.dirLastInput = input;
+    }
+
+    // 🛤️ NEURO MAZE
+    if (theme === 'neuro-maze' && mazeActive) {
+        let inputKey = null;
+        if (jx === -1) inputKey = 'ArrowLeft';
+        else if (jx === 1) inputKey = 'ArrowRight';
+        else if (jy === -1) inputKey = 'ArrowUp';
+        else if (jy === 1) inputKey = 'ArrowDown';
+
+        if (inputKey && inputKey !== joystick.mazeLastInput) {
+            const event = new KeyboardEvent('keydown', { key: inputKey });
+            window.dispatchEvent(event);
+        }
+        joystick.mazeLastInput = inputKey;
+    }
+
+    const needsCursor = ['neuro-matrix', 'neuro-pathway', 'neuro-filter', 'neuro-color'].includes(theme);
+    if (needsCursor) {
+        if (!window.virtualCursor) {
+            window.virtualCursor = document.createElement('div');
+            window.virtualCursor.id = 'virtual-cursor';
+            window.virtualCursor.style.position = 'fixed';
+            window.virtualCursor.style.width = '20px';
+            window.virtualCursor.style.height = '20px';
+            window.virtualCursor.style.background = 'rgba(168, 218, 220, 0.8)';
+            window.virtualCursor.style.borderRadius = '50%';
+            window.virtualCursor.style.pointerEvents = 'none';
+            window.virtualCursor.style.zIndex = '100000';
+            window.virtualCursor.style.boxShadow = '0 0 10px var(--neon-cyan)';
+            window.virtualCursor.style.transition = 'transform 0.1s';
+            document.body.appendChild(window.virtualCursor);
+            window.vcX = window.innerWidth / 2;
+            window.vcY = window.innerHeight / 2;
+        }
+
+        window.vcX += jx * 12;
+        window.vcY += jy * 12;
+        window.vcX = Math.max(0, Math.min(window.innerWidth, window.vcX));
+        window.vcY = Math.max(0, Math.min(window.innerHeight, window.vcY));
+        window.virtualCursor.style.transform = `translate(${window.vcX}px, ${window.vcY}px)`;
+
+        if (joystick.btn === 0 && !joystick.btnLastState) {
+
+            const el = document.elementFromPoint(window.vcX, window.vcY);
+            if (el) {
+                window.virtualCursor.style.background = '#fff';
+                setTimeout(() => window.virtualCursor.style.background = 'rgba(168, 218, 220, 0.8)', 150);
+
+                const clickEvent = new MouseEvent('click', {
+                    view: window, bubbles: true, cancelable: true,
+                    clientX: window.vcX, clientY: window.vcY
+                });
+                el.dispatchEvent(clickEvent);
+            }
+        }
+    } else {
+        if (window.virtualCursor) {
+            window.virtualCursor.remove();
+            window.virtualCursor = null;
+        }
+    }
+
+}
+
+// NEURO BACKGROUND ANIMATION
+const neuroBgCanvas = document.getElementById('neuro-bg-canvas');
+const neuroBgCtx = neuroBgCanvas ? neuroBgCanvas.getContext('2d') : null;
+let neuroParticles = [];
+let neuroBgAnimFrame;
+let neuroBgActive = false;
+
+function resizeNeuroBg() {
+    if (!neuroBgCanvas) return;
+    neuroBgCanvas.width = window.innerWidth;
+    neuroBgCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeNeuroBg);
+resizeNeuroBg();
+
+function startNeuroBg() {
+    if (neuroBgActive) return;
+    neuroBgActive = true;
+    if (neuroParticles.length === 0) {
+        for (let i = 0; i < 80; i++) {
+            neuroParticles.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: (Math.random() - 0.5) * 0.5,
+                radius: Math.random() * 2 + 1
+            });
+        }
+    }
+    animateNeuroBg();
+}
+
+function stopNeuroBg() {
+    neuroBgActive = false;
+    cancelAnimationFrame(neuroBgAnimFrame);
+}
+
+function animateNeuroBg() {
+    if (!neuroBgActive || !neuroBgCtx) return;
+    neuroBgCtx.clearRect(0, 0, neuroBgCanvas.width, neuroBgCanvas.height);
+
+    const time = Date.now() * 0.0005;
+    const gradient = neuroBgCtx.createLinearGradient(
+        Math.sin(time) * 100, Math.cos(time) * 100,
+        neuroBgCanvas.width + Math.cos(time) * 100, neuroBgCanvas.height + Math.sin(time) * 100
+    );
+    gradient.addColorStop(0, 'rgba(15, 17, 35, 1)');
+    gradient.addColorStop(0.5, 'rgba(30, 35, 60, 1)');
+    gradient.addColorStop(1, 'rgba(15, 17, 35, 1)');
+    neuroBgCtx.fillStyle = gradient;
+    neuroBgCtx.fillRect(0, 0, neuroBgCanvas.width, neuroBgCanvas.height);
+
+    neuroBgCtx.fillStyle = 'rgba(168, 218, 220, 0.6)';
+    neuroBgCtx.strokeStyle = 'rgba(168, 218, 220, 0.15)';
+
+    for (let i = 0; i < neuroParticles.length; i++) {
+        let p = neuroParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0 || p.x > neuroBgCanvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > neuroBgCanvas.height) p.vy *= -1;
+
+        neuroBgCtx.beginPath();
+        neuroBgCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        neuroBgCtx.fill();
+
+        for (let j = i + 1; j < neuroParticles.length; j++) {
+            let p2 = neuroParticles[j];
+            let dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+            if (dist < 120) {
+                neuroBgCtx.beginPath();
+                neuroBgCtx.moveTo(p.x, p.y);
+                neuroBgCtx.lineTo(p2.x, p2.y);
+                neuroBgCtx.stroke();
+            }
+        }
+    }
+
+    neuroBgAnimFrame = requestAnimationFrame(animateNeuroBg);
+}
+// NEURO GAME: DIRECTION RECALL
+
+const dirDisplay = document.getElementById('neuro-direction-display');
+const dirOverlay = document.getElementById('neuro-direction-overlay');
+const btnDirStart = document.getElementById('btn-neuro-direction-start');
+const dirLevelBadge = document.getElementById('neuro-direction-level');
+
+let dirSequence = [];
+let dirPlayerInput = [];
+let dirActive = false;
+let dirLevel = 1;
+
+function initNeuroDirection() {
+    dirActive = false;
+    dirSequence = [];
+    dirPlayerInput = [];
+    dirLevel = 1;
+    if (dirLevelBadge) dirLevelBadge.textContent = 'Level: 1';
+    if (dirOverlay) {
+        dirOverlay.classList.remove('hidden');
+        document.getElementById('neuro-direction-msg').textContent = 'Memorize the directions.';
+    }
+    if (dirDisplay) dirDisplay.textContent = '--';
+    if (btnDirStart) {
+        btnDirStart.classList.remove('hidden');
+        btnDirStart.textContent = 'Start Sequence';
+    }
+}
+
+if (btnDirStart) {
+    btnDirStart.addEventListener('click', () => {
+        sfx.neuroClick();
+        if (dirOverlay) dirOverlay.classList.add('hidden');
+        btnDirStart.classList.add('hidden');
+        nextDirLevel();
+    });
+}
+
+function nextDirLevel() {
+    dirActive = false;
+    dirPlayerInput = [];
+    const dirs = ['⬆️', '⬇️', '⬅️', '➡️'];
+    dirSequence.push(dirs[Math.floor(Math.random() * dirs.length)]);
+    if (dirLevelBadge) dirLevelBadge.textContent = `Level: ${dirLevel}`;
+
+    let i = 0;
+    dirDisplay.textContent = 'Get Ready';
+    setTimeout(() => {
+        const interval = setInterval(() => {
+            if (i >= dirSequence.length) {
+                clearInterval(interval);
+                dirDisplay.textContent = 'Your Turn';
+                dirDisplay.style.color = '#fff';
+                dirActive = true;
+                return;
+            }
+            dirDisplay.textContent = dirSequence[i];
+            dirDisplay.style.color = 'var(--neon-cyan)';
+            sfx.neuroHover();
+            setTimeout(() => { dirDisplay.textContent = ''; }, 600);
+            i++;
+        }, 1000);
+    }, 1000);
+}
+
+let lastDirInputTime = 0;
+
+function handleDirInput(dirIcon) {
+    if (!dirActive) return;
+    if (Date.now() - lastDirInputTime < 300) return;
+    lastDirInputTime = Date.now();
+
+    dirPlayerInput.push(dirIcon);
+    dirDisplay.textContent = dirIcon;
+    dirDisplay.style.color = 'var(--neon-green)';
+
+    const currentIndex = dirPlayerInput.length - 1;
+    if (dirPlayerInput[currentIndex] !== dirSequence[currentIndex]) {
+        sfx.neuroError();
+        dirActive = false;
+        applyErrorShake(dirDisplay);
+        dirDisplay.textContent = 'Failed';
+        dirDisplay.style.color = 'var(--neon-magenta)';
+        btnDirStart.classList.remove('hidden');
+        btnDirStart.textContent = 'Restart';
+        dirLevel = 1;
+        dirSequence = [];
+    } else {
+        sfx.neuroClick();
+        if (dirPlayerInput.length === dirSequence.length) {
+            dirActive = false;
+            sfx.neuroSuccess();
+            dirDisplay.textContent = 'Perfect!';
+            dirLevel++;
+            setTimeout(nextDirLevel, 1500);
+        }
+    }
+}
+
+// Keyboard/ESP support for Direction Recall
+window.addEventListener('keydown', (e) => {
+    if (document.body.getAttribute('data-theme') === 'neuro-direction') {
+        if (e.key === 'ArrowUp' || e.key === '2') handleDirInput('⬆️');
+        if (e.key === 'ArrowDown' || e.key === '8') handleDirInput('⬇️');
+        if (e.key === 'ArrowLeft' || e.key === '4') handleDirInput('⬅️');
+        if (e.key === 'ArrowRight' || e.key === '6') handleDirInput('➡️');
+    }
+});
+
+// NEURO GAME: COGNITIVE MAZE
+const mazeCanvas = document.getElementById('neuro-maze-canvas');
+const mctx = mazeCanvas ? mazeCanvas.getContext('2d') : null;
+const mazeOverlay = document.getElementById('neuro-maze-overlay');
+const btnMazeStart = document.getElementById('btn-neuro-maze-start');
+const mazeLevelBadge = document.getElementById('neuro-maze-level');
+
+let mazeActive = false;
+let mazeLevel = 1;
+let mazeGrid = [];
+let mazePlayer = { x: 0, y: 0 };
+let mazeEnd = { x: 9, y: 9 };
+let mazeVisible = true;
+
+function initNeuroMaze() {
+    mazeActive = false;
+    mazeLevel = 1;
+    mazeVisible = true;
+    if (mazeLevelBadge) mazeLevelBadge.textContent = 'Level: 1';
+    if (mazeOverlay) {
+        mazeOverlay.classList.remove('hidden');
+        document.getElementById('neuro-maze-msg').textContent = 'Memorize the path, then navigate.';
+    }
+    if (btnMazeStart) {
+        btnMazeStart.classList.remove('hidden');
+        btnMazeStart.textContent = 'Generate Maze';
+    }
+    if (mctx) mctx.clearRect(0, 0, 600, 400);
+}
+
+if (btnMazeStart) {
+    btnMazeStart.addEventListener('click', () => {
+        sfx.neuroClick();
+        if (mazeOverlay) mazeOverlay.classList.add('hidden');
+        btnMazeStart.classList.add('hidden');
+        generateMaze();
+    });
+}
+
+function generateMaze() {
+    mazeGrid = Array.from({ length: 10 }, () => Array(10).fill(0));
+    let obstaclesCount = Math.min(40, mazeLevel * 5);
+    for (let i = 0; i < obstaclesCount; i++) {
+        let ox = Math.floor(Math.random() * 10);
+        let oy = Math.floor(Math.random() * 10);
+        if ((ox === 0 && oy === 0) || (ox === 9 && oy === 9)) continue;
+        mazeGrid[oy][ox] = 1;
+    }
+    mazePlayer = { x: 0, y: 0 };
+    mazeVisible = true;
+    drawMaze();
+
+    setTimeout(() => {
+        mazeVisible = false;
+        mazeActive = true;
+        drawMaze();
+    }, Math.max(1000, 4000 - (mazeLevel * 200)));
+}
+
+function drawMaze() {
+    if (!mctx) return;
+    mctx.clearRect(0, 0, 600, 400);
+    const cellSize = 40;
+    const offsetX = 100;
+
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+            if (mazeGrid[y][x] === 1 && mazeVisible) {
+                mctx.fillStyle = 'rgba(168, 218, 220, 0.4)';
+                mctx.fillRect(offsetX + x * cellSize, y * cellSize, cellSize, cellSize);
+            }
+            mctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            mctx.strokeRect(offsetX + x * cellSize, y * cellSize, cellSize, cellSize);
+        }
+    }
+
+    mctx.fillStyle = 'var(--neon-green)';
+    mctx.beginPath();
+    mctx.arc(offsetX + mazePlayer.x * cellSize + cellSize / 2, mazePlayer.y * cellSize + cellSize / 2, cellSize / 3, 0, Math.PI * 2);
+    mctx.fill();
+
+    if (mazeVisible) {
+        mctx.fillStyle = 'var(--neon-magenta)';
+        mctx.fillRect(offsetX + mazeEnd.x * cellSize + 10, mazeEnd.y * cellSize + 10, cellSize - 20, cellSize - 20);
+    }
+}
+
+window.addEventListener('keydown', (e) => {
+    if (document.body.getAttribute('data-theme') === 'neuro-maze' && mazeActive) {
+        let nx = mazePlayer.x;
+        let ny = mazePlayer.y;
+        if (e.key === 'ArrowUp' || e.key === '2') ny--;
+        if (e.key === 'ArrowDown' || e.key === '8') ny++;
+        if (e.key === 'ArrowLeft' || e.key === '4') nx--;
+        if (e.key === 'ArrowRight' || e.key === '6') nx++;
+
+        if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
+            if (mazeGrid[ny][nx] === 1) {
+                sfx.neuroError();
+                mazeVisible = true;
+                mazeActive = false;
+                drawMaze();
+                setTimeout(() => {
+                    btnMazeStart.classList.remove('hidden');
+                    btnMazeStart.textContent = 'Restart Maze';
+                    mazeLevel = 1;
+                }, 1000);
+            } else {
+                mazePlayer.x = nx;
+                mazePlayer.y = ny;
+                sfx.neuroHover();
+                drawMaze();
+                if (nx === 9 && ny === 9) {
+                    sfx.neuroSuccess();
+                    mazeVisible = true;
+                    mazeActive = false;
+                    drawMaze();
+                    mazeLevel++;
+                    if (mazeLevelBadge) mazeLevelBadge.textContent = `Level: ${mazeLevel}`;
+                    setTimeout(generateMaze, 1500);
+                }
+            }
+        }
+    }
+});
+
+// NEURO GAME: PATTERN SYNC
+const btnPatternStart = document.getElementById('btn-neuro-pattern-start');
+const patternPad = document.getElementById('neuro-pattern-pad');
+const patternOverlay = document.getElementById('neuro-pattern-overlay');
+const patternScoreBadge = document.getElementById('neuro-pattern-score');
+
+let patternActive = false;
+let patternScore = 0;
+let patternSequence = [];
+let patternUserClicks = [];
+let patternPlaybackTime = 0;
+
+function initNeuroPattern() {
+    patternActive = false;
+    patternScore = 0;
+    patternSequence = [];
+    if (patternScoreBadge) patternScoreBadge.textContent = `Score: 0`;
+    if (patternOverlay) patternOverlay.classList.remove('hidden');
+    if (btnPatternStart) btnPatternStart.classList.remove('hidden');
+}
+
+if (btnPatternStart) {
+    btnPatternStart.addEventListener('click', () => {
+        sfx.neuroClick();
+        if (patternOverlay) patternOverlay.classList.add('hidden');
+        btnPatternStart.classList.add('hidden');
+        nextPatternRound();
+    });
+}
+
+function nextPatternRound() {
+    patternActive = false;
+    patternUserClicks = [];
+    const len = 3 + Math.floor(patternScore / 2);
+    patternSequence = [];
+    let currentTime = 500;
+    for (let i = 0; i < len; i++) {
+        patternSequence.push(currentTime);
+        currentTime += 400 + Math.random() * 800;
+    }
+
+    patternSequence.forEach((time, index) => {
+        setTimeout(() => {
+            sfx.neuroHover();
+            if (patternPad) {
+                patternPad.style.background = 'var(--neon-cyan)';
+                setTimeout(() => { patternPad.style.background = 'transparent'; }, 150);
+            }
+            if (index === patternSequence.length - 1) {
+                setTimeout(() => { patternActive = true; }, 300);
+            }
+        }, time);
+    });
+}
+
+if (patternPad) {
+    patternPad.addEventListener('click', handlePatternClick);
+}
+
+function handlePatternClick() {
+    if (!patternActive) return;
+    sfx.neuroClick();
+    patternPad.style.background = 'var(--neon-green)';
+    setTimeout(() => { patternPad.style.background = 'transparent'; }, 100);
+
+    patternUserClicks.push(Date.now());
+    if (patternUserClicks.length === patternSequence.length) {
+        sfx.neuroSuccess();
+        patternScore++;
+        if (patternScoreBadge) patternScoreBadge.textContent = `Score: ${patternScore}`;
+        patternActive = false;
+        setTimeout(nextPatternRound, 1500);
+    }
+}
+
+window.addEventListener('keydown', (e) => {
+    if (document.body.getAttribute('data-theme') === 'neuro-pattern' && patternActive) {
+        if (e.key === ' ' || e.key === 'Enter' || e.key === '#') {
+            handlePatternClick();
+        }
+    }
+});
+
+// NEURO GAME: COLOR ASSOCIATION
+const btnColorStart = document.getElementById('btn-neuro-color-start');
+const colorOverlay = document.getElementById('neuro-color-overlay');
+const colorScoreBadge = document.getElementById('neuro-color-score');
+const colorTimeBadge = document.getElementById('neuro-color-time');
+const colorTarget = document.getElementById('neuro-color-target');
+const colorRule = document.getElementById('neuro-color-rule');
+const colorOptionsBox = document.getElementById('neuro-color-options');
+
+let colorActive = false;
+let colorScore = 0;
+let colorTime = 30;
+let colorTimerInt;
+let currentColorCorrect = '';
+
+const colorWords = ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE'];
+const colorHex = ['#ff003c', '#00f0ff', '#00ff66', '#ffaa00', '#cdb4db'];
+
+function initNeuroColor() {
+    colorActive = false;
+    colorScore = 0;
+    colorTime = 30;
+    clearInterval(colorTimerInt);
+    if (colorScoreBadge) colorScoreBadge.textContent = 'Score: 0';
+    if (colorTimeBadge) colorTimeBadge.textContent = 'Time: 30s';
+    if (colorOverlay) colorOverlay.classList.remove('hidden');
+    if (btnColorStart) btnColorStart.classList.remove('hidden');
+    if (colorOptionsBox) colorOptionsBox.innerHTML = '';
+}
+
+if (btnColorStart) {
+    btnColorStart.addEventListener('click', () => {
+        sfx.neuroClick();
+        if (colorOverlay) colorOverlay.classList.add('hidden');
+        btnColorStart.classList.add('hidden');
+        startColorGame();
+    });
+}
+
+function startColorGame() {
+    colorActive = true;
+    colorTime = 30;
+    colorScore = 0;
+    nextColorRound();
+    colorTimerInt = setInterval(() => {
+        colorTime--;
+        if (colorTimeBadge) colorTimeBadge.textContent = `Time: ${colorTime}s`;
+        if (colorTime <= 0) {
+            clearInterval(colorTimerInt);
+            colorActive = false;
+            sfx.neuroError();
+            if (colorOverlay) {
+                colorOverlay.classList.remove('hidden');
+                document.getElementById('neuro-color-msg').textContent = 'Time Up!';
+            }
+            if (btnColorStart) {
+                btnColorStart.classList.remove('hidden');
+                btnColorStart.textContent = 'Play Again';
+            }
+        }
+    }, 1000);
+}
+
+function nextColorRound() {
+    if (!colorActive) return;
+    const isTextRule = Math.random() > 0.5;
+    colorRule.textContent = isTextRule ? "Match the TEXT MEANING" : "Match the TEXT COLOR";
+
+    const wordIdx = Math.floor(Math.random() * colorWords.length);
+    const styleIdx = Math.floor(Math.random() * colorHex.length);
+
+    colorTarget.textContent = colorWords[wordIdx];
+    colorTarget.style.color = colorHex[styleIdx];
+
+    currentColorCorrect = isTextRule ? colorWords[wordIdx] : colorWords[styleIdx];
+
+    colorOptionsBox.innerHTML = '';
+
+    let options = [...colorWords];
+    options.sort(() => Math.random() - 0.5);
+
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'btn glow-btn neuro-btn';
+        btn.textContent = opt;
+        btn.addEventListener('click', () => {
+            if (!colorActive) return;
+            if (opt === currentColorCorrect) {
+                sfx.neuroSuccess();
+                colorScore++;
+                if (colorScoreBadge) colorScoreBadge.textContent = `Score: ${colorScore}`;
+                nextColorRound();
+            } else {
+                sfx.neuroError();
+                colorTime = Math.max(0, colorTime - 3); // Penalty
+                if (colorTimeBadge) colorTimeBadge.textContent = `Time: ${colorTime}s`;
+                applyErrorShake(colorTarget);
+            }
+        });
+        colorOptionsBox.appendChild(btn);
+    });
+}
+
+
+// NEURO GAME: MEMORY MATRIX
+
+let neuroMatrixLevel = 1;
+let neuroMatrixStreak = 0;
+let neuroMatrixGridSize = 3;
+let neuroMatrixActiveTiles = [];
+let neuroMatrixPlayerTiles = [];
+let neuroMatrixState = 'idle'; // idle, showing, playing
+
+function initNeuroMatrix() {
+    neuroMatrixLevel = 1;
+    neuroMatrixStreak = 0;
+    neuroMatrixGridSize = 3;
+    document.getElementById('neuro-matrix-level').textContent = `Level: ${neuroMatrixLevel}`;
+    document.getElementById('neuro-matrix-streak').textContent = `Streak: ${neuroMatrixStreak}`;
+
+    const overlay = document.getElementById('neuro-matrix-overlay');
+    overlay.classList.remove('hidden');
+    document.getElementById('neuro-matrix-msg').textContent = 'Memorize the pattern.';
+
+    const startBtn = document.getElementById('btn-neuro-matrix-start');
+    if (startBtn) {
+        startBtn.classList.remove('hidden');
+        startBtn.onclick = startNeuroMatrixRound;
+    }
+
+    renderNeuroMatrixGrid();
+}
+
+function renderNeuroMatrixGrid() {
+    const grid = document.getElementById('neuro-matrix-grid');
+    grid.innerHTML = '';
+    grid.style.gridTemplateColumns = `repeat(${neuroMatrixGridSize}, 1fr)`;
+    grid.style.gridTemplateRows = `repeat(${neuroMatrixGridSize}, 1fr)`;
+
+    for (let i = 0; i < neuroMatrixGridSize * neuroMatrixGridSize; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'neuro-matrix-tile';
+        tile.dataset.idx = i;
+        tile.onclick = () => handleNeuroMatrixClick(i, tile);
+        grid.appendChild(tile);
+    }
+}
+
+function startNeuroMatrixRound() {
+    neuroMatrixState = 'showing';
+    const overlay = document.getElementById('neuro-matrix-overlay');
+    overlay.classList.add('hidden');
+
+    const startBtn = document.getElementById('btn-neuro-matrix-start');
+    if (startBtn) startBtn.classList.add('hidden');
+
+    renderNeuroMatrixGrid();
+
+    const totalTiles = neuroMatrixGridSize * neuroMatrixGridSize;
+    const numActive = neuroMatrixGridSize + Math.floor(neuroMatrixLevel / 2);
+    neuroMatrixActiveTiles = [];
+    neuroMatrixPlayerTiles = [];
+
+    while (neuroMatrixActiveTiles.length < numActive) {
+        let r = Math.floor(Math.random() * totalTiles);
+        if (!neuroMatrixActiveTiles.includes(r)) neuroMatrixActiveTiles.push(r);
+    }
+
+    const tiles = document.querySelectorAll('.neuro-matrix-tile');
+    neuroMatrixActiveTiles.forEach(idx => {
+        tiles[idx].classList.add('active');
+    });
+    sfx.neuroHover();
+
+    setTimeout(() => {
+        neuroMatrixActiveTiles.forEach(idx => {
+            tiles[idx].classList.remove('active');
+        });
+        neuroMatrixState = 'playing';
+        sfx.neuroClick();
+    }, Math.max(800, 2500 - (neuroMatrixLevel * 100)));
+}
+
+function handleNeuroMatrixClick(idx, tileElement) {
+    if (neuroMatrixState !== 'playing') return;
+    if (neuroMatrixPlayerTiles.includes(idx)) return;
+
+    if (neuroMatrixActiveTiles.includes(idx)) {
+        neuroMatrixPlayerTiles.push(idx);
+        tileElement.classList.add('correct');
+        sfx.neuroClick();
+
+        if (neuroMatrixPlayerTiles.length === neuroMatrixActiveTiles.length) {
+            neuroMatrixState = 'idle';
+            sfx.neuroSuccess();
+            neuroMatrixLevel++;
+            neuroMatrixStreak++;
+
+            if (neuroMatrixLevel % 3 === 0 && neuroMatrixGridSize < 7) {
+                neuroMatrixGridSize++;
+            }
+
+            document.getElementById('neuro-matrix-level').textContent = `Level: ${neuroMatrixLevel}`;
+            document.getElementById('neuro-matrix-streak').textContent = `Streak: ${neuroMatrixStreak}`;
+
+            setTimeout(startNeuroMatrixRound, 1000);
+        }
+    } else {
+        neuroMatrixState = 'idle';
+        tileElement.classList.add('wrong');
+        sfx.neuroError();
+        neuroMatrixStreak = 0;
+        document.getElementById('neuro-matrix-streak').textContent = `Streak: ${neuroMatrixStreak}`;
+
+        const overlay = document.getElementById('neuro-matrix-overlay');
+        overlay.classList.remove('hidden');
+        document.getElementById('neuro-matrix-msg').textContent = 'Incorrect. Try again.';
+
+        const startBtn = document.getElementById('btn-neuro-matrix-start');
+        if (startBtn) {
+            startBtn.textContent = 'Retry Pattern';
+            startBtn.classList.remove('hidden');
+        }
+    }
+}
+
+
+// NEURO GAME: ZEN BALANCE
+
+const neuroBalanceCanvas = document.getElementById('neuro-balance-canvas');
+const neuroBalanceCtx = neuroBalanceCanvas ? neuroBalanceCanvas.getContext('2d') : null;
+let neuroBalanceState = 'idle';
+let neuroBalanceOrb = { x: 300, y: 200, vx: 0, vy: 0 };
+let neuroBalanceDrift = { vx: 0, vy: 0 };
+let neuroBalanceTime = 0;
+let neuroBalanceBest = 0;
+let neuroBalanceStartTime = 0;
+let neuroBalanceAnimFrame;
+let neuroBalanceTilt = { x: 0, y: 0 };
+let neuroBalanceTargetTilt = { x: 0, y: 0 };
+let neuroBalanceTrail = [];
+let balanceKeys = { left: false, right: false, up: false, down: false };
+
+function initNeuroBalance() {
+    neuroBalanceState = 'idle';
+    if (neuroBalanceCanvas) {
+        neuroBalanceOrb = { x: neuroBalanceCanvas.width / 2, y: neuroBalanceCanvas.height / 2, vx: 0, vy: 0 };
+    }
+    neuroBalanceTilt = { x: 0, y: 0 };
+    neuroBalanceTargetTilt = { x: 0, y: 0 };
+    neuroBalanceTrail = [];
+
+    document.getElementById('neuro-balance-time').textContent = `Focus Time: 0s`;
+
+    const overlay = document.getElementById('neuro-balance-overlay');
+    overlay.classList.remove('hidden');
+    document.getElementById('neuro-balance-msg').textContent = 'Keep the orb centered using small, gentle movements.';
+
+    const startBtn = document.getElementById('btn-neuro-balance-start');
+    if (startBtn) {
+        startBtn.classList.remove('hidden');
+        startBtn.textContent = 'Find Balance';
+        startBtn.onclick = startNeuroBalanceRound;
+    }
+
+    drawNeuroBalance();
+}
+
+function startNeuroBalanceRound() {
+    neuroBalanceState = 'playing';
+    if (neuroBalanceCanvas) {
+        neuroBalanceOrb = { x: neuroBalanceCanvas.width / 2, y: neuroBalanceCanvas.height / 2, vx: 0, vy: 0 };
+    }
+    neuroBalanceTilt = { x: 0, y: 0 };
+    neuroBalanceTargetTilt = { x: 0, y: 0 };
+    neuroBalanceTrail = [];
+    neuroBalanceDrift = { vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5 };
+    neuroBalanceStartTime = Date.now();
+    neuroBalanceTime = 0;
+
+    const overlay = document.getElementById('neuro-balance-overlay');
+    overlay.classList.add('hidden');
+
+    const startBtn = document.getElementById('btn-neuro-balance-start');
+    if (startBtn) startBtn.classList.add('hidden');
+
+    animateNeuroBalance();
+}
+
+function drawNeuroBalance() {
+    if (!neuroBalanceCtx || !neuroBalanceCanvas) return;
+    const w = neuroBalanceCanvas.width;
+    const h = neuroBalanceCanvas.height;
+    neuroBalanceCtx.clearRect(0, 0, w, h);
+
+    const centerX = w / 2;
+    const centerY = h / 2;
+
+    neuroBalanceCtx.beginPath();
+    neuroBalanceCtx.ellipse(centerX, centerY + 20, 120, 60, 0, 0, Math.PI * 2);
+    neuroBalanceCtx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    neuroBalanceCtx.filter = 'blur(15px)';
+    neuroBalanceCtx.fill();
+    neuroBalanceCtx.filter = 'none';
+
+    neuroBalanceCtx.save();
+    neuroBalanceCtx.translate(centerX, centerY);
+
+    neuroBalanceCtx.scale(1, 0.8 + neuroBalanceTilt.y * 0.05);
+    neuroBalanceCtx.rotate(neuroBalanceTilt.x * 0.15);
+
+    neuroBalanceCtx.beginPath();
+    neuroBalanceCtx.arc(0, 0, 80, 0, Math.PI * 2);
+    neuroBalanceCtx.strokeStyle = 'rgba(168, 218, 220, 0.6)';
+    neuroBalanceCtx.lineWidth = 4;
+    neuroBalanceCtx.stroke();
+
+    neuroBalanceCtx.beginPath();
+    neuroBalanceCtx.arc(0, 0, 80, 0, Math.PI * 2);
+    neuroBalanceCtx.fillStyle = 'rgba(168, 218, 220, 0.05)';
+    neuroBalanceCtx.fill();
+
+    neuroBalanceCtx.beginPath();
+    neuroBalanceCtx.arc(0, 0, 40, 0, Math.PI * 2);
+    neuroBalanceCtx.strokeStyle = 'rgba(168, 218, 220, 0.3)';
+    neuroBalanceCtx.lineWidth = 2;
+    neuroBalanceCtx.stroke();
+    neuroBalanceCtx.restore();
+
+    if (neuroBalanceTrail.length > 1) {
+        neuroBalanceCtx.beginPath();
+        neuroBalanceCtx.moveTo(neuroBalanceTrail[0].x, neuroBalanceTrail[0].y);
+        for (let i = 1; i < neuroBalanceTrail.length; i++) {
+            neuroBalanceCtx.lineTo(neuroBalanceTrail[i].x, neuroBalanceTrail[i].y);
+        }
+        neuroBalanceCtx.strokeStyle = 'rgba(189, 224, 254, 0.4)';
+        neuroBalanceCtx.lineWidth = 8;
+        neuroBalanceCtx.lineCap = 'round';
+        neuroBalanceCtx.lineJoin = 'round';
+        neuroBalanceCtx.stroke();
+    }
+
+    neuroBalanceCtx.beginPath();
+    neuroBalanceCtx.arc(neuroBalanceOrb.x, neuroBalanceOrb.y, 16, 0, Math.PI * 2);
+    neuroBalanceCtx.fillStyle = '#bde0fe';
+    neuroBalanceCtx.shadowColor = '#a8dadc';
+    neuroBalanceCtx.shadowBlur = 20;
+    neuroBalanceCtx.fill();
+
+    neuroBalanceCtx.beginPath();
+    neuroBalanceCtx.arc(neuroBalanceOrb.x - 4, neuroBalanceOrb.y - 4, 6, 0, Math.PI * 2);
+    neuroBalanceCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    neuroBalanceCtx.shadowBlur = 0;
+    neuroBalanceCtx.fill();
+}
+
+function animateNeuroBalance() {
+    if (neuroBalanceState !== 'playing') return;
+
+    let inputX = 0;
+    let inputY = 0;
+
+    // DEAD ZONE
+    if (Math.abs(joystick.x) > 0.1) inputX = joystick.x;
+    if (Math.abs(joystick.y) > 0.1) inputY = joystick.y;
+
+    if (balanceKeys.left) inputX = -1;
+    if (balanceKeys.right) inputX = 1;
+    if (balanceKeys.up) inputY = -1;
+    if (balanceKeys.down) inputY = 1;
+
+    neuroBalanceTargetTilt.x = inputX;
+    neuroBalanceTargetTilt.y = inputY;
+
+    if (Math.random() < 0.1) {
+        neuroBalanceDrift.vx += (Math.random() - 0.5) * 0.2;
+        neuroBalanceDrift.vy += (Math.random() - 0.5) * 0.2;
+        neuroBalanceDrift.vx = Math.max(-0.6, Math.min(0.6, neuroBalanceDrift.vx));
+        neuroBalanceDrift.vy = Math.max(-0.6, Math.min(0.6, neuroBalanceDrift.vy));
+    }
+    neuroBalanceTargetTilt.x += neuroBalanceDrift.vx;
+    neuroBalanceTargetTilt.y += neuroBalanceDrift.vy;
+
+    neuroBalanceTilt.x += (neuroBalanceTargetTilt.x - neuroBalanceTilt.x) * 0.08;
+    neuroBalanceTilt.y += (neuroBalanceTargetTilt.y - neuroBalanceTilt.y) * 0.08;
+
+    const accelMultiplier = 0.5;
+    neuroBalanceOrb.vx += neuroBalanceTilt.x * accelMultiplier;
+    neuroBalanceOrb.vy += neuroBalanceTilt.y * accelMultiplier;
+
+    const centerX = neuroBalanceCanvas.width / 2;
+    const centerY = neuroBalanceCanvas.height / 2;
+    const dx = centerX - neuroBalanceOrb.x;
+    const dy = centerY - neuroBalanceOrb.y;
+
+    let assistForce = Math.max(0, 0.002 - (neuroBalanceTime * 0.0001));
+    neuroBalanceOrb.vx += dx * assistForce;
+    neuroBalanceOrb.vy += dy * assistForce;
+
+    neuroBalanceOrb.vx *= 0.92;
+    neuroBalanceOrb.vy *= 0.92;
+
+    const maxSpeed = 8;
+    const speed = Math.hypot(neuroBalanceOrb.vx, neuroBalanceOrb.vy);
+    if (speed > maxSpeed) {
+        neuroBalanceOrb.vx = (neuroBalanceOrb.vx / speed) * maxSpeed;
+        neuroBalanceOrb.vy = (neuroBalanceOrb.vy / speed) * maxSpeed;
+    }
+
+    neuroBalanceOrb.x += neuroBalanceOrb.vx;
+    neuroBalanceOrb.y += neuroBalanceOrb.vy;
+
+    neuroBalanceTrail.push({ x: neuroBalanceOrb.x, y: neuroBalanceOrb.y });
+    if (neuroBalanceTrail.length > 20) {
+        neuroBalanceTrail.shift();
+    }
+
+    drawNeuroBalance();
+
+    const dist = Math.hypot(neuroBalanceOrb.x - centerX, neuroBalanceOrb.y - centerY);
+
+    if (dist < 80) {
+        neuroBalanceTime = Math.floor((Date.now() - neuroBalanceStartTime) / 1000);
+        document.getElementById('neuro-balance-time').textContent = `Focus Time: ${neuroBalanceTime}s`;
+        if (neuroBalanceTime > neuroBalanceBest) {
+            neuroBalanceBest = neuroBalanceTime;
+            document.getElementById('neuro-balance-best').textContent = `Best: ${neuroBalanceBest}s`;
+        }
+    } else {
+        neuroBalanceState = 'idle';
+        sfx.neuroError();
+        const overlay = document.getElementById('neuro-balance-overlay');
+        overlay.classList.remove('hidden');
+        document.getElementById('neuro-balance-msg').textContent = `Equilibrium lost.`;
+
+        const startBtn = document.getElementById('btn-neuro-balance-start');
+        if (startBtn) {
+            startBtn.textContent = 'Retry Balance';
+            startBtn.classList.remove('hidden');
+        }
+        return;
+    }
+
+    neuroBalanceAnimFrame = requestAnimationFrame(animateNeuroBalance);
+}
+
+
+// NEURO GAME: NEURAL PATHWAY
+
+let neuroPathwayLevel = 1;
+let neuroPathwayNodes = [];
+let neuroPathwaySequence = [];
+let neuroPathwayPlayerSeq = [];
+let neuroPathwayState = 'idle'; // idle, showing, playing
+const neuroPathwayCanvas = document.getElementById('neuro-pathway-canvas');
+const neuroPathwayCtx = neuroPathwayCanvas ? neuroPathwayCanvas.getContext('2d') : null;
+
+function initNeuroPathway() {
+    neuroPathwayLevel = 1;
+    document.getElementById('neuro-pathway-level').textContent = `Level: ${neuroPathwayLevel}`;
+
+    const overlay = document.getElementById('neuro-pathway-overlay');
+    overlay.classList.remove('hidden');
+    document.getElementById('neuro-pathway-msg').textContent = `Recreate the path.`;
+
+    const startBtn = document.getElementById('btn-neuro-pathway-start');
+    if (startBtn) {
+        startBtn.classList.remove('hidden');
+        startBtn.textContent = 'Start Pathway';
+        startBtn.onclick = startNeuroPathwayRound;
+    }
+
+    if (neuroPathwayCanvas) {
+        neuroPathwayCanvas.addEventListener('click', handleNeuroPathwayClick);
+    }
+
+    neuroPathwayNodes = [];
+    drawNeuroPathway();
+}
+
+function generateNeuroPathwayNodes(count) {
+    neuroPathwayNodes = [];
+    neuroPathwaySequence = [];
+    const padding = 50;
+    const w = neuroPathwayCanvas.width;
+    const h = neuroPathwayCanvas.height;
+
+    for (let i = 0; i < count; i++) {
+        let valid = false;
+        let p;
+        while (!valid) {
+            p = {
+                x: padding + Math.random() * (w - padding * 2),
+                y: padding + Math.random() * (h - padding * 2),
+                id: i,
+                active: false
+            };
+            valid = true;
+            for (let n of neuroPathwayNodes) {
+                if (Math.hypot(p.x - n.x, p.y - n.y) < 60) valid = false;
+            }
+        }
+        neuroPathwayNodes.push(p);
+        neuroPathwaySequence.push(i);
+    }
+}
+
+function drawNeuroPathway() {
+    if (!neuroPathwayCtx) return;
+    const w = neuroPathwayCanvas.width;
+    const h = neuroPathwayCanvas.height;
+    neuroPathwayCtx.clearRect(0, 0, w, h);
+
+    neuroPathwayCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    neuroPathwayCtx.lineWidth = 2;
+    for (let i = 0; i < neuroPathwayNodes.length; i++) {
+        for (let j = i + 1; j < neuroPathwayNodes.length; j++) {
+            neuroPathwayCtx.beginPath();
+            neuroPathwayCtx.moveTo(neuroPathwayNodes[i].x, neuroPathwayNodes[i].y);
+            neuroPathwayCtx.lineTo(neuroPathwayNodes[j].x, neuroPathwayNodes[j].y);
+            neuroPathwayCtx.stroke();
+        }
+    }
+
+    if (neuroPathwayPlayerSeq.length > 1) {
+        neuroPathwayCtx.strokeStyle = 'rgba(168, 218, 220, 0.8)';
+        neuroPathwayCtx.lineWidth = 4;
+        neuroPathwayCtx.beginPath();
+        neuroPathwayCtx.moveTo(neuroPathwayNodes[neuroPathwayPlayerSeq[0]].x, neuroPathwayNodes[neuroPathwayPlayerSeq[0]].y);
+        for (let i = 1; i < neuroPathwayPlayerSeq.length; i++) {
+            neuroPathwayCtx.lineTo(neuroPathwayNodes[neuroPathwayPlayerSeq[i]].x, neuroPathwayNodes[neuroPathwayPlayerSeq[i]].y);
+        }
+        neuroPathwayCtx.stroke();
+    }
+
+    for (let n of neuroPathwayNodes) {
+        neuroPathwayCtx.beginPath();
+        neuroPathwayCtx.arc(n.x, n.y, 20, 0, Math.PI * 2);
+        if (n.active) {
+            neuroPathwayCtx.fillStyle = 'rgba(189, 224, 254, 1)';
+            neuroPathwayCtx.shadowColor = 'rgba(189, 224, 254, 0.8)';
+            neuroPathwayCtx.shadowBlur = 15;
+        } else {
+            neuroPathwayCtx.fillStyle = 'rgba(15, 17, 35, 0.8)';
+            neuroPathwayCtx.shadowBlur = 0;
+        }
+        neuroPathwayCtx.fill();
+        neuroPathwayCtx.strokeStyle = 'rgba(168, 218, 220, 0.5)';
+        neuroPathwayCtx.lineWidth = 2;
+        neuroPathwayCtx.stroke();
+        neuroPathwayCtx.shadowBlur = 0;
+    }
+}
+
+function startNeuroPathwayRound() {
+    neuroPathwayState = 'showing';
+    neuroPathwayPlayerSeq = [];
+
+    const overlay = document.getElementById('neuro-pathway-overlay');
+    overlay.classList.add('hidden');
+
+    const startBtn = document.getElementById('btn-neuro-pathway-start');
+    if (startBtn) startBtn.classList.add('hidden');
+
+    generateNeuroPathwayNodes(neuroPathwayLevel + 2);
+    drawNeuroPathway();
+
+    let step = 0;
+    const interval = setInterval(() => {
+        if (step > 0) neuroPathwayNodes[neuroPathwaySequence[step - 1]].active = false;
+        if (step < neuroPathwaySequence.length) {
+            neuroPathwayNodes[neuroPathwaySequence[step]].active = true;
+            sfx.neuroHover();
+            drawNeuroPathway();
+            step++;
+        } else {
+            clearInterval(interval);
+            neuroPathwayState = 'playing';
+            drawNeuroPathway();
+        }
+    }, 800);
+}
+
+function handleNeuroPathwayClick(e) {
+    if (neuroPathwayState !== 'playing') return;
+
+    const rect = neuroPathwayCanvas.getBoundingClientRect();
+    const scaleX = neuroPathwayCanvas.width / rect.width;
+    const scaleY = neuroPathwayCanvas.height / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    for (let i = 0; i < neuroPathwayNodes.length; i++) {
+        let n = neuroPathwayNodes[i];
+        if (Math.hypot(x - n.x, y - n.y) < 30) {
+            if (neuroPathwayPlayerSeq.includes(n.id)) return;
+
+            neuroPathwayPlayerSeq.push(n.id);
+            n.active = true;
+            drawNeuroPathway();
+            setTimeout(() => { n.active = false; drawNeuroPathway(); }, 300);
+
+            const expected = neuroPathwaySequence[neuroPathwayPlayerSeq.length - 1];
+            if (n.id === expected) {
+                sfx.neuroClick();
+                if (neuroPathwayPlayerSeq.length === neuroPathwaySequence.length) {
+                    neuroPathwayState = 'idle';
+                    sfx.neuroSuccess();
+                    neuroPathwayLevel++;
+                    document.getElementById('neuro-pathway-level').textContent = `Level: ${neuroPathwayLevel}`;
+                    setTimeout(startNeuroPathwayRound, 1000);
+                }
+            } else {
+                neuroPathwayState = 'idle';
+                sfx.neuroError();
+
+                const overlay = document.getElementById('neuro-pathway-overlay');
+                overlay.classList.remove('hidden');
+                document.getElementById('neuro-pathway-msg').textContent = 'Path broken.';
+
+                const startBtn = document.getElementById('btn-neuro-pathway-start');
+                if (startBtn) {
+                    startBtn.textContent = 'Retry Path';
+                    startBtn.classList.remove('hidden');
+                }
+            }
+            break;
+        }
+    }
+}
+
+
+// NEURO GAME: FOCUS FILTER
+
+const neuroFilterCanvas = document.getElementById('neuro-filter-canvas');
+const neuroFilterCtx = neuroFilterCanvas ? neuroFilterCanvas.getContext('2d') : null;
+let neuroFilterScore = 0;
+let neuroFilterTargets = ['🔵', '🟢', '🟡', '🟣'];
+let neuroFilterDistractors = ['🔴', '🟥', '⭐', '🔺', '✖️', '⬜'];
+let neuroFilterCurrentTarget = '🔵';
+let neuroFilterEntities = [];
+let neuroFilterState = 'idle'; // idle, playing
+let neuroFilterAnimFrame;
+let neuroFilterSpawnTimer;
+
+function initNeuroFilter() {
+    neuroFilterState = 'idle';
+    neuroFilterScore = 0;
+
+    document.getElementById('neuro-filter-score').textContent = `Score: ${neuroFilterScore}`;
+
+    const overlay = document.getElementById('neuro-filter-overlay');
+    overlay.classList.remove('hidden');
+    document.getElementById('neuro-filter-msg').textContent = `Click only the target.`;
+
+    const startBtn = document.getElementById('btn-neuro-filter-start');
+    if (startBtn) {
+        startBtn.classList.remove('hidden');
+        startBtn.textContent = 'Start Filter';
+        startBtn.onclick = startNeuroFilterRound;
+    }
+
+    if (neuroFilterCanvas) {
+        neuroFilterCanvas.addEventListener('click', handleNeuroFilterClick);
+    }
+
+    neuroFilterEntities = [];
+    if (neuroFilterCtx) {
+        neuroFilterCtx.clearRect(0, 0, neuroFilterCanvas.width, neuroFilterCanvas.height);
+    }
+}
+
+function startNeuroFilterRound() {
+    neuroFilterState = 'playing';
+    neuroFilterScore = 0;
+    document.getElementById('neuro-filter-score').textContent = `Score: ${neuroFilterScore}`;
+
+    neuroFilterCurrentTarget = neuroFilterTargets[Math.floor(Math.random() * neuroFilterTargets.length)];
+    document.getElementById('neuro-filter-target').textContent = `Target: ${neuroFilterCurrentTarget}`;
+
+    const overlay = document.getElementById('neuro-filter-overlay');
+    overlay.classList.add('hidden');
+
+    const startBtn = document.getElementById('btn-neuro-filter-start');
+    if (startBtn) startBtn.classList.add('hidden');
+
+    neuroFilterEntities = [];
+    neuroFilterSpawnTimer = setInterval(spawnNeuroFilterEntity, 1000);
+    animateNeuroFilter();
+}
+
+function spawnNeuroFilterEntity() {
+    if (neuroFilterState !== 'playing') return;
+
+    const isTarget = Math.random() < 0.3;
+    let symbol = isTarget ? neuroFilterCurrentTarget : neuroFilterDistractors[Math.floor(Math.random() * neuroFilterDistractors.length)];
+
+    if (!isTarget && symbol === neuroFilterCurrentTarget) {
+        symbol = '✖️';
+    }
+
+    const y = Math.random() * (neuroFilterCanvas.height - 40) + 20;
+
+    neuroFilterEntities.push({
+        symbol: symbol,
+        isTarget: isTarget,
+        x: -30,
+        y: y,
+        vx: Math.random() * 1.5 + 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        opacity: 0,
+        size: 30
+    });
+}
+
+function animateNeuroFilter() {
+    if (neuroFilterState !== 'playing' || !neuroFilterCtx) return;
+
+    neuroFilterCtx.clearRect(0, 0, neuroFilterCanvas.width, neuroFilterCanvas.height);
+    neuroFilterCtx.font = '30px Arial';
+    neuroFilterCtx.textAlign = 'center';
+    neuroFilterCtx.textBaseline = 'middle';
+
+    for (let i = neuroFilterEntities.length - 1; i >= 0; i--) {
+        let e = neuroFilterEntities[i];
+        e.x += e.vx;
+        e.y += e.vy;
+
+        if (e.opacity < 1) e.opacity += 0.05;
+
+        neuroFilterCtx.globalAlpha = e.opacity;
+        neuroFilterCtx.fillText(e.symbol, e.x, e.y);
+
+        if (e.x > neuroFilterCanvas.width + 30) {
+            if (e.isTarget) {
+                neuroFilterScore = Math.max(0, neuroFilterScore - 5);
+                document.getElementById('neuro-filter-score').textContent = `Score: ${neuroFilterScore}`;
+                sfx.neuroError();
+            }
+            neuroFilterEntities.splice(i, 1);
+        }
+    }
+
+    neuroFilterCtx.globalAlpha = 1;
+    neuroFilterAnimFrame = requestAnimationFrame(animateNeuroFilter);
+}
+
+function handleNeuroFilterClick(event) {
+    if (neuroFilterState !== 'playing') return;
+
+    const rect = neuroFilterCanvas.getBoundingClientRect();
+    const scaleX = neuroFilterCanvas.width / rect.width;
+    const scaleY = neuroFilterCanvas.height / rect.height;
+
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+
+    let hit = false;
+    for (let i = neuroFilterEntities.length - 1; i >= 0; i--) {
+        let e = neuroFilterEntities[i];
+        if (Math.hypot(x - e.x, y - e.y) < 25) {
+            hit = true;
+            if (e.isTarget) {
+                sfx.neuroSuccess();
+                neuroFilterScore += 10;
+            } else {
+                sfx.neuroError();
+                neuroFilterScore = Math.max(0, neuroFilterScore - 10);
+            }
+            document.getElementById('neuro-filter-score').textContent = `Score: ${neuroFilterScore}`;
+            neuroFilterEntities.splice(i, 1);
+            break;
         }
     }
 }
