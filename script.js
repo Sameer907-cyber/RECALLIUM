@@ -2,48 +2,48 @@
 //ESP,Mechanical Keyboard Controls, Joystick Controls
 //-------------------------
 
-// let joystick = {
-//     x: 0,
-//     y: 0,
-//     btn: 1,
-//     btnLastState: false,
-//     coreLastInput: null
-// };
+let joystick = {
+    x: 0,
+    y: 0,
+    btn: 1,
+    btnLastState: false,
+    coreLastInput: null
+};
 
-// const ESP_IP = "10.137.98.140";
+const ESP_IP = "10.137.98.140";
 
-// const socket = new WebSocket(`ws://${ESP_IP}:81/`);
+const socket = new WebSocket(`ws://${ESP_IP}:81/`);
 
-// socket.onopen = () => {
-//     console.log("Connected to ESP 🎮");
-// };
+socket.onopen = () => {
+    console.log("Connected to ESP 🎮");
+};
 
-// function normalizeDirection(dir) {
-//     // Identity mapping based on user request: "up joystick should move up"
-//     return dir;
-// }
+function normalizeDirection(dir) {
+    // Identity mapping based on user request: "up joystick should move up"
+    return dir;
+}
 
-// socket.onmessage = (event) => {
-//     const data = event.data.trim();
+socket.onmessage = (event) => {
+    const data = event.data.trim();
 
-//     // If joystick format → "dx,dy,btn"
-//     if (data.includes(",")) {
-//         const [dx, dy, btn] = data.split(",");
+    // If joystick format → "dx,dy,btn"
+    if (data.includes(",")) {
+        const [dx, dy, btn] = data.split(",");
 
-//         joystick.x = Number(dx);
-//         joystick.y = Number(dy);
-//         joystick.btn = Number(btn);
+        joystick.x = Number(dx);
+        joystick.y = Number(dy);
+        joystick.btn = Number(btn);
 
-//         handleJoystick();
-//     } else {
-//         let key = normalizeDirection(data);
-//         console.log("RAW:", data, "MAPPED:", key);
-//         handleESPInput(key);
-//     }
-// };
+        handleJoystick();
+    } else {
+        let key = normalizeDirection(data);
+        console.log("RAW:", data, "MAPPED:", key);
+        handleESPInput(key);
+    }
+};
 
-// let lastInputTime = 0;
-// const INPUT_DELAY = 80; 
+let lastInputTime = 0;
+const INPUT_DELAY = 80;
 
 
 
